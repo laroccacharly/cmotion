@@ -23,6 +23,10 @@ A C renderer for motion videos: an alternative to HyperFrames for simple scenes 
   Voiceovers and images are kept in `videos/VIDEO/generated/`.
   A scene is re-rendered only when its compiled JSON, the engine binary or the x264 settings change.
 
+## Demo
+
+[![cmotion demo](https://img.youtube.com/vi/ZH9IOFH1m04/maxresdefault.jpg)](https://youtu.be/ZH9IOFH1m04)
+
 ## Requirements
 
 - [bun](https://bun.sh), and `ffmpeg` and `ffprobe` on the PATH
