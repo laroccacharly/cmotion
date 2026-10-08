@@ -1,0 +1,11 @@
+{
+  "title": "cmotion fixture",
+  "scenes": [
+    {
+      "id": "hook",
+      "title": "Code that passes everything",
+      "visual": "A function that emails a report, with two green badges at the top: \"typechecks\" and \"tests pass\". A red question mark sits over the `tryPromise` line.\n\n```ts\nconst sendEmail = Effect.fn(\"sendEmail\")(function* (title: string, report: string) {\n  const apiKey = yield* findSecret(\"EMAIL_API_KEY\")\n  yield* Effect.tryPromise(() =>\n    new EmailClient({ apiKey }).send({ title, body: report })\n  )\n})\n```",
+      "voiceover": "An agent wrote this function. It sends a report by email. It typechecks, and the tests pass. And yet it's sloppy. Neither the tests nor the typechecker can see why. Today I want to show you how a lint rule caught it."
+    }
+  ]
+}

@@ -1,0 +1,218 @@
+{
+  "text": "An agent wrote this function. It sends a report by email. It typechecks, and the tests pass. And yet it's sloppy. Neither the tests nor the typechecker can see why. Today I want to show you how a lint rule caught it.",
+  "model": "eleven_v4",
+  "voice": "JBFqnCBsd6RMkjVDRZzb",
+  "audio": "0de552d63d7947dd.mp3",
+  "words": [
+    {
+      "text": "An",
+      "start": 0.0,
+      "end": 0.16
+    },
+    {
+      "text": "agent",
+      "start": 0.24,
+      "end": 0.64
+    },
+    {
+      "text": "wrote",
+      "start": 0.72,
+      "end": 0.88
+    },
+    {
+      "text": "this",
+      "start": 0.96,
+      "end": 1.12
+    },
+    {
+      "text": "function.",
+      "start": 1.36,
+      "end": 1.84
+    },
+    {
+      "text": "It",
+      "start": 2.08,
+      "end": 2.24
+    },
+    {
+      "text": "sends",
+      "start": 2.28,
+      "end": 2.48
+    },
+    {
+      "text": "a",
+      "start": 2.56,
+      "end": 2.6
+    },
+    {
+      "text": "report",
+      "start": 2.64,
+      "end": 3.04
+    },
+    {
+      "text": "by",
+      "start": 3.16,
+      "end": 3.28
+    },
+    {
+      "text": "email.",
+      "start": 3.36,
+      "end": 4.24
+    },
+    {
+      "text": "It",
+      "start": 4.36,
+      "end": 4.48
+    },
+    {
+      "text": "typechecks,",
+      "start": 4.64,
+      "end": 5.36
+    },
+    {
+      "text": "and",
+      "start": 5.44,
+      "end": 5.52
+    },
+    {
+      "text": "the",
+      "start": 5.56,
+      "end": 5.6
+    },
+    {
+      "text": "tests",
+      "start": 5.68,
+      "end": 6.08
+    },
+    {
+      "text": "pass.",
+      "start": 6.16,
+      "end": 7.12
+    },
+    {
+      "text": "And",
+      "start": 7.2,
+      "end": 7.28
+    },
+    {
+      "text": "yet",
+      "start": 7.36,
+      "end": 7.68
+    },
+    {
+      "text": "it's",
+      "start": 7.76,
+      "end": 7.92
+    },
+    {
+      "text": "sloppy.",
+      "start": 7.96,
+      "end": 8.88
+    },
+    {
+      "text": "Neither",
+      "start": 8.96,
+      "end": 9.2
+    },
+    {
+      "text": "the",
+      "start": 9.28,
+      "end": 9.44
+    },
+    {
+      "text": "tests",
+      "start": 9.68,
+      "end": 9.92
+    },
+    {
+      "text": "nor",
+      "start": 10.08,
+      "end": 10.24
+    },
+    {
+      "text": "the",
+      "start": 10.28,
+      "end": 10.32
+    },
+    {
+      "text": "typechecker",
+      "start": 10.4,
+      "end": 11.04
+    },
+    {
+      "text": "can",
+      "start": 11.12,
+      "end": 11.2
+    },
+    {
+      "text": "see",
+      "start": 11.28,
+      "end": 11.44
+    },
+    {
+      "text": "why.",
+      "start": 11.52,
+      "end": 12.32
+    },
+    {
+      "text": "Today",
+      "start": 12.56,
+      "end": 12.8
+    },
+    {
+      "text": "I",
+      "start": 12.96,
+      "end": 13.013
+    },
+    {
+      "text": "want",
+      "start": 13.067,
+      "end": 13.12
+    },
+    {
+      "text": "to",
+      "start": 13.2,
+      "end": 13.28
+    },
+    {
+      "text": "show",
+      "start": 13.36,
+      "end": 13.44
+    },
+    {
+      "text": "you",
+      "start": 13.52,
+      "end": 13.6
+    },
+    {
+      "text": "how",
+      "start": 13.68,
+      "end": 13.76
+    },
+    {
+      "text": "a",
+      "start": 13.84,
+      "end": 13.92
+    },
+    {
+      "text": "lint",
+      "start": 14.0,
+      "end": 14.24
+    },
+    {
+      "text": "rule",
+      "start": 14.32,
+      "end": 14.56
+    },
+    {
+      "text": "caught",
+      "start": 14.64,
+      "end": 14.88
+    },
+    {
+      "text": "it.",
+      "start": 14.96,
+      "end": 15.36
+    }
+  ]
+}

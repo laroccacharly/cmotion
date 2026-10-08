@@ -1,0 +1,30 @@
+{
+  "name": "cmotion",
+  "version": "0.5.0",
+  "private": true,
+  "license": "MIT",
+  "type": "module",
+  "bin": {
+    "cmotion": "./ts/cli.ts"
+  },
+  "exports": {
+    ".": "./ts/dsl.ts"
+  },
+  "scripts": {
+    "test": "bun test",
+    "lint": "oxlint && ts-lint-effect"
+  },
+  "dependencies": {
+    "@effect/platform-bun": "4.0.0",
+    "effect": "4.0.0",
+    "effect-lib": "github:laroccacharly/effect-lib#v0.7.0",
+    "typescript": "^7.0.2"
+  },
+  "devDependencies": {
+    "@effect/tsgo": "^0.51.1",
+    "@types/bun": "^1.4.2",
+    "oxlint": "^1.87.0",
+    "oxlint-tsgolint": "^7.0.2003",
+    "ts-lint": "github:laroccacharly/ts-lint#v0.3.0"
+  }
+}
