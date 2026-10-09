@@ -7,7 +7,7 @@ import { BunServices } from "@effect/platform-bun"
 import { Effect, Exit, Layer, Option } from "effect"
 import { typecheck } from "../ts/build.ts"
 import { checkScene } from "../ts/check.ts"
-import { box, palette, SceneCtx, type Style, text } from "../ts/dsl.ts"
+import { box, palette, SceneCtx, shader, type Style, text } from "../ts/dsl.ts"
 import { Engine } from "../ts/engine.ts"
 import { frameTime, numbered, parseFrame } from "../ts/inspect.ts"
 import { renderFile } from "../ts/layout.ts"
@@ -27,6 +27,17 @@ describe("the DSL", () => {
     const s = new SceneCtx("a", 1, 0, [])
     s.tl.to("b", { offsetX: 10, offsetY: -4 }, 0)
     expect(s.tl.tweens.map((t) => [t.prop, t.to])).toEqual([["x", 10], ["y", -4]])
+  })
+
+  test("a shader's uniforms tween as targets of their own, and need GLSL names", () => {
+    const s = new SceneCtx("a", 1, 0, [])
+    s.tl.fromTo("lens", { uniforms: { amount: 0 } }, { uniforms: { amount: 1, tint: "#ff0000" } }, 0)
+    expect(s.tl.tweens.map((t) => [t.target, t.prop, t.to])).toEqual([["lens.amount", "value", 1], ["lens.tint", "value", [1, 0, 0, 1]]])
+    const root = shader("vec4 effect(vec2 p) { return source(p); }", { id: "lens", uniforms: { amount: 0, tint: "#000", "2x": 0 } })
+    expect(checkScene("a", root, [...s.tl.tweens, { target: "lens.amout" }])).toEqual([
+      'scene a: shader "lens": uniform "2x" is not a GLSL name',
+      'scene a: a tween targets "lens.amout", which no node has',
+    ])
   })
 
   test("eases, fonts and colors are only the ones the engine knows", () => {

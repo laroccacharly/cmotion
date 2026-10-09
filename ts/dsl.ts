@@ -32,6 +32,9 @@ export function color(css: string): Color {
 
 export type Span = { text: string; font?: Font; size?: number; color?: Css; tok?: string };
 
+/** A shader uniform: a float, a vec2 to vec4, or a CSS color, which becomes a vec4 of 0..1 floats. */
+export type Uniform = number | [number, number] | [number, number, number] | [number, number, number, number] | Css;
+
 /** Visual properties a node starts with; the animatable ones can also be tweened. */
 export type Style = {
   id?: string;
@@ -58,13 +61,16 @@ export type Style = {
   value?: number;
   /** Decimal precision is clamped to 0..6 by the renderer. */
   count?: { decimals?: number; prefix?: string; suffix?: string };
+  /** Shader nodes: the GLSL that defines `vec4 effect(vec2 p)`, and its own uniforms with their starting values. */
+  code?: string;
+  uniforms?: Record<string, Uniform>;
   /** Set by the compiler on file images: a hash of the file, so the render cache notices when it changes. */
   srcHash?: string;
   // text
   font?: Font; size?: number; lineHeight?: number; letterSpacing?: number; textAlign?: "start" | "center" | "end";
 };
 
-export type Node = { type: "box" | "text" | "field" | "image"; style: Style; spans?: Span[]; children: Node[] };
+export type Node = { type: "box" | "text" | "field" | "image" | "shader"; style: Style; spans?: Span[]; children: Node[] };
 
 /**
  * A node given its own position (a non-zero x, y, relX, relY or anchor) without `abs: true`. Only in the types: a row
@@ -105,6 +111,17 @@ export const field = (style: Style & { shape: string }): Node => ({ type: "field
 export const image = <const S extends Style = {}>(src: string, style?: S): NodeOf<S> =>
   ({ type: "image", style: { ...style, src }, children: [] }) as Node as NodeOf<S>;
 
+/**
+ * A box whose children draw into a layer that `code`, a GLSL fragment, turns into what the box shows. The code defines
+ * `vec4 effect(vec2 p)`: the premultiplied color at p, in px from the box's top left. It can read
+ * - `source(p)`: the children's premultiplied color at p, which may lie outside the box
+ * - `iResolution` (vec2, the box size), `iTime` (scene seconds; reading it redraws every frame)
+ * - each of `uniforms` by its name, a float, vecN or a color as a vec4. Tween them with `{ uniforms: { name: v } }`.
+ * The effect covers the box only, so size it to hold what it spills, like a glow. Compiler errors give lines of code.
+ */
+export const shader = <const S extends Style & { id: string }>(code: string, style: S & FlowSettings<S>, ...children: Children<S>): NodeOf<S> =>
+  ({ type: "shader", style: { ...style, code }, children: children.flat() }) as Node as NodeOf<S>;
+
 /** A single line of text: a string, or pieces where a plain string is a span in the node's own style. */
 export const text = <const S extends Style = {}>(content: string | (string | Span)[], style?: S): NodeOf<S> =>
   ({
@@ -142,12 +159,15 @@ export type Props = {
   value?: number;
   /** Image rotation in degrees. */
   rotate?: number;
+  /** A shader node's own uniforms, by name. */
+  uniforms?: Record<string, Uniform>;
 };
 export type TweenOpts = { duration?: number; ease?: Ease; stagger?: number };
 
-type Tween = { target: string; prop: string; from?: number | Color; to: number | Color; start: number; dur: number; ease?: Ease };
+type Value = number | number[];
+type Tween = { target: string; prop: string; from?: Value; to: Value; start: number; dur: number; ease?: Ease };
 
-const value = (prop: string, v: number | string): number | Color => (typeof v === "string" ? color(v) : v);
+const value = (v: Uniform): Value => (typeof v === "string" ? color(v) : typeof v === "number" ? v : [...v]);
 
 // The engine's names for props the DSL names differently.
 const ENGINE_PROP: Record<string, string> = { offsetX: "x", offsetY: "y" };
@@ -158,14 +178,17 @@ export class Timeline {
   private add(targets: string | string[], from: Props | null, to: Props, t: number, o: TweenOpts) {
     const list = Array.isArray(targets) ? targets : [targets];
     list.forEach((target, i) => {
+      const push = (target: string, prop: string, v: Uniform, f: Uniform | undefined) =>
+        this.tweens.push({
+          target, prop, to: value(v), start: t + i * (o.stagger ?? 0), dur: o.duration ?? 0.5, ease: o.ease,
+          ...(f !== undefined ? { from: value(f) } : {}),
+        });
       for (const [key, v] of Object.entries(to)) {
         if (v === undefined) continue;
-        const f = from?.[key as keyof Props];
-        const prop = ENGINE_PROP[key] ?? key;
-        this.tweens.push({
-          target, prop, to: value(prop, v), start: t + i * (o.stagger ?? 0), dur: o.duration ?? 0.5, ease: o.ease,
-          ...(f !== undefined ? { from: value(prop, f) } : {}),
-        });
+        // Each uniform is the value of its own target, "<shader id>.<name>".
+        if (key === "uniforms")
+          for (const [name, u] of Object.entries(v as Record<string, Uniform>)) push(`${target}.${name}`, "value", u, from?.uniforms?.[name]);
+        else push(target, ENGINE_PROP[key] ?? key, v as Uniform, from?.[key as keyof Props] as Uniform | undefined);
       }
     });
     return this;

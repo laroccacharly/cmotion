@@ -22,14 +22,17 @@ void gl_close(void);
 
 // A program from the default vertex shader and fs; texture unit 0 is `texture0`.
 GLuint gl_shader(const char *fs);
+// The same, or 0 with the compiler's log in err when fs does not compile or link.
+GLuint gl_program(const char *fs, char *err, int errlen);
 GLuint gl_text_shader(void);  // texture * vertex color, like raylib's default shader
 GLuint gl_white(void);        // a 1x1 white texture, for quads whose shader samples nothing
 
 // Textures wrap with GL_REPEAT. Mipmapped textures filter trilinearly, the others bilinearly.
 GLuint gl_texture(int w, int h, const unsigned char *rgba, bool mipmaps);
 
-Fbo gl_fbo(int w, int h);
+Fbo gl_fbo(int w, int h);  // its texture clamps at the edges
 void gl_begin(Fbo f);  // draws into f, with (0, 0) at its top left
+Fbo gl_target(void);   // the Fbo of the last gl_begin
 void gl_clear(Rgba8 c);
 void gl_read(Fbo f, unsigned char *rgba);  // rows bottom-up, as GL stores them
 

@@ -37,6 +37,7 @@ static EGLContext context = EGL_NO_CONTEXT;
 static GLuint vao, vbo, white, text_shader;
 static GLuint program, texture;
 static float mvp[16];
+static Fbo target;
 static Vertex verts[MAX_QUADS * 6];
 static int nverts;
 
@@ -70,24 +71,22 @@ static EGLDisplay open_display(void) {
   return d != EGL_NO_DISPLAY && eglInitialize(d, NULL, NULL) ? d : EGL_NO_DISPLAY;
 }
 
-static GLuint compile(GLenum kind, const char *src) {
+static GLuint compile(GLenum kind, const char *src, char *err, int errlen) {
   GLuint s = glCreateShader(kind);
   glShaderSource(s, 1, &src, NULL);
   glCompileShader(s);
   GLint ok;
   glGetShaderiv(s, GL_COMPILE_STATUS, &ok);
-  if (!ok) {
-    char log[2048];
-    glGetShaderInfoLog(s, sizeof log, NULL, log);
-    fprintf(stderr, "cmotion: shader: %s\n", log);
-  }
-  return s;
+  if (!ok) glGetShaderInfoLog(s, errlen, NULL, err);
+  return ok ? s : 0;
 }
 
-GLuint gl_shader(const char *fs) {
+GLuint gl_program(const char *fs, char *err, int errlen) {
+  GLuint vs = compile(GL_VERTEX_SHADER, VS, err, errlen), f = vs ? compile(GL_FRAGMENT_SHADER, fs, err, errlen) : 0;
+  if (!f) return 0;
   GLuint p = glCreateProgram();
-  glAttachShader(p, compile(GL_VERTEX_SHADER, VS));
-  glAttachShader(p, compile(GL_FRAGMENT_SHADER, fs));
+  glAttachShader(p, vs);
+  glAttachShader(p, f);
   glBindAttribLocation(p, 0, "vertexPosition");
   glBindAttribLocation(p, 1, "vertexTexCoord");
   glBindAttribLocation(p, 2, "vertexColor");
@@ -95,13 +94,19 @@ GLuint gl_shader(const char *fs) {
   GLint ok;
   glGetProgramiv(p, GL_LINK_STATUS, &ok);
   if (!ok) {
-    char log[2048];
-    glGetProgramInfoLog(p, sizeof log, NULL, log);
-    fprintf(stderr, "cmotion: shader program: %s\n", log);
+    glGetProgramInfoLog(p, errlen, NULL, err);
+    return 0;
   }
   glUseProgram(p);
   glUniform1i(glGetUniformLocation(p, "texture0"), 0);
   glUseProgram(program);
+  return p;
+}
+
+GLuint gl_shader(const char *fs) {
+  char err[2048];
+  GLuint p = gl_program(fs, err, sizeof err);
+  if (!p) fprintf(stderr, "cmotion: shader: %s\n", err);
   return p;
 }
 
@@ -177,14 +182,22 @@ GLuint gl_texture(int w, int h, const unsigned char *rgba, bool mipmaps) {
 
 Fbo gl_fbo(int w, int h) {
   Fbo f = {0, gl_texture(w, h, NULL, false), w, h};
+  // Effects that sample past the frame's edge read the edge, not the opposite side.
+  glBindTexture(GL_TEXTURE_2D, f.tex);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glBindTexture(GL_TEXTURE_2D, texture);
   glGenFramebuffers(1, &f.fbo);
   glBindFramebuffer(GL_FRAMEBUFFER, f.fbo);
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, f.tex, 0);
   return f;
 }
 
+Fbo gl_target(void) { return target; }
+
 void gl_begin(Fbo f) {
   gl_flush();
+  target = f;
   glBindFramebuffer(GL_FRAMEBUFFER, f.fbo);
   glViewport(0, 0, f.w, f.h);
   // Orthographic, top-left origin, depth 0..1, computed like raylib's rlOrtho(0, w, h, 0, 0, 1).
@@ -228,7 +241,8 @@ void gl_blend(int mode) {
   }
   glEnable(GL_BLEND);
   glBlendEquation(GL_FUNC_ADD);
-  glBlendFunc(mode == BLEND_PREMULTIPLIED ? GL_ONE : GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+  // Alpha accumulates like premultiplied color, so a layer drawn onto a transparent target keeps the right coverage.
+  glBlendFuncSeparate(mode == BLEND_PREMULTIPLIED ? GL_ONE : GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA, GL_ONE, GL_ONE_MINUS_SRC_ALPHA);
 }
 
 GLint gl_loc(const char *name) { return glGetUniformLocation(program, name); }

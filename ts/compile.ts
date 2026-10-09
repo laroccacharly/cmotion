@@ -139,10 +139,17 @@ const pad4 = (p: number | number[] | undefined) =>
   p === undefined ? undefined : typeof p === "number" ? [p, p, p, p] : p.length === 2 ? [p[0], p[1], p[0], p[1]] : p;
 
 function serialize(n: Node): unknown {
-  const { pad, fill, border, bar, background: _, ...rest } = n.style;
+  const { pad, fill, border, bar, uniforms, background: _, ...rest } = n.style;
   return {
     type: n.type,
     ...rest,
+    ...(uniforms
+      ? {
+          uniforms: Object.entries(uniforms).map(([name, v]) =>
+            typeof v === "string" ? { name, size: 4, value: color(v) } : { name, size: typeof v === "number" ? 1 : v.length, value: v }
+          ),
+        }
+      : {}),
     ...(rest.color ? { color: color(rest.color) } : {}),
     ...(pad !== undefined ? { pad: pad4(pad) } : {}),
     ...(fill ? { fill: color(fill) } : {}),

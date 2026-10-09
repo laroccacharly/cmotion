@@ -207,7 +207,7 @@ int main(int argc, char **argv) {
   }
   render_init(v.width, v.height);
   for (int i = 0; i < nsel; i++) {
-    if (!scene_images_load(sel[i], err, sizeof err)) {
+    if (!scene_gpu_load(sel[i], err, sizeof err)) {
       fprintf(stderr, "cmotion: %s\n", err);
       return 1;
     }

@@ -1,6 +1,6 @@
 // cmotion: renders a compiled motion video (video.json) to frames, then pipes them to ffmpeg.
 //
-// The scene graph is a tree of boxes, single-line text nodes and images. Layout is a tiny flexbox
+// The scene graph is a tree of boxes, single-line text nodes, images and shaders. Layout is a tiny flexbox
 // (row / column / absolute). Animations are tweens on named targets (nodes or code tokens),
 // already resolved to seconds by the TypeScript compiler.
 #pragma once
@@ -44,6 +44,14 @@ typedef struct {
   float width;  // measured advance
 } Span;
 
+// A shader node's own uniform: a float or vecN, animated as the "value" of the target "<node id>.<name>".
+typedef struct {
+  char name[64];
+  int size;    // 1 to 4 floats
+  int target;
+  int loc;     // in the node's program
+} Uniform;
+
 typedef struct Node Node;
 struct Node {
   int target;         // index into targets
@@ -54,6 +62,11 @@ struct Node {
   char *src;
   unsigned int tex; int tex_w, tex_h;  // GL texture, premultiplied alpha with mipmaps; loaded by scene_images_load
   int opaque[4];      // the texture's visible pixels (alpha > 16): x0, y0, x1, y1, for layout checks
+  bool is_shader;     // draws `code`'s effect() over its box, reading its children drawn into a layer
+  char *code;
+  unsigned int program;  // compiled by scene_gpu_load
+  int locs[6];        // the built-in uniforms: iChannel0, uRect, iResolution, iTime, uOpacity, uFbH
+  Uniform *uniforms; int nuniforms;
   // layout input
   float x, y, w, h;   // x/y are offsets for absolute children; w/h < 0 means auto
   float rel_x, rel_y;     // absolute children: extra offset as a fraction of the parent size (CSS left: 50%)
@@ -105,6 +118,8 @@ typedef struct {
   Tween *tweens; int ntweens;
   Cue *subs; int nsubs;
   int sub;  // the cue showing at the last scene_eval time, or -1
+  bool live;  // a shader reads iTime, so no two frames are the same
+  float t;    // the time of the last scene_eval
 } Scene;
 
 // Subtitle look: white text on a dark rounded plate, centered near the bottom.
@@ -137,7 +152,7 @@ void render_init(int w, int h);
 void render_scene(Scene *s);
 // JSON array of layout issues found sampling the scene every `step` seconds (render.c).
 char *render_bounds(Scene *s, float step);
-bool scene_images_load(Scene *s, char *err, int errlen);  // needs the GL context
+bool scene_gpu_load(Scene *s, char *err, int errlen);  // loads images and compiles shaders; needs the GL context
 void render_yuv(Fbo frame, Fbo target);  // frame -> I420 bytes in a (w/4) x (h*3/2) target
 
 // shared helpers

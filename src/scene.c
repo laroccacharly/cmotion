@@ -87,6 +87,25 @@ static bool parse_node(Scene *s, Node *n, const cJSON *o, char *err, int errlen)
   n->is_field = strcmp(str(o, "type", "box"), "field") == 0;
   n->is_image = strcmp(str(o, "type", "box"), "image") == 0;
   if (n->is_image) n->src = strdup(str(o, "src", ""));
+  n->is_shader = strcmp(str(o, "type", "box"), "shader") == 0;
+  if (n->is_shader) {
+    n->code = strdup(str(o, "code", ""));
+    if (strstr(n->code, "iTime")) s->live = true;
+    const cJSON *uniforms = cJSON_GetObjectItemCaseSensitive(o, "uniforms");
+    n->nuniforms = cJSON_GetArraySize(uniforms);
+    n->uniforms = calloc(n->nuniforms ? n->nuniforms : 1, sizeof(Uniform));
+    for (int i = 0; i < n->nuniforms; i++) {
+      const cJSON *uo = cJSON_GetArrayItem(uniforms, i);
+      Uniform *u = &n->uniforms[i];
+      snprintf(u->name, sizeof u->name, "%s", str(uo, "name", ""));
+      u->size = (int)fminf(4, fmaxf(1, num(uo, "size", 1)));
+      char uid[160];
+      snprintf(uid, sizeof uid, "%s.%s", id ? id : "", u->name);
+      u->target = add_target(s, uid);
+      s->targets[u->target].base[P_VALUE] = val_of(cJSON_GetObjectItemCaseSensitive(uo, "value"));
+      t = &s->targets[n->target];  // add_target may have moved the targets
+    }
+  }
   t->base[P_SPACING].v[0] = num(o, "spacing", 40);
   t->base[P_VALUE].v[0] = num(o, "value", 0);
   t->base[P_ROTATE].v[0] = num(o, "rotate", 0);
@@ -454,6 +473,7 @@ void scene_layout(Scene *s) {
 // ---------- animation ----------
 
 bool scene_still(const Scene *s, float t1, float t2) {
+  if (s->live) return false;
   // A tween changes the scene between t1 and t2 when it starts by t2 and has not finished by t1.
   for (int i = 0; i < s->ntweens && s->tweens[i].start <= t2; i++)
     if (s->tweens[i].start + s->tweens[i].dur > t1) return false;
@@ -464,6 +484,7 @@ bool scene_still(const Scene *s, float t1, float t2) {
 }
 
 void scene_eval(Scene *s, float t) {
+  s->t = t;
   s->sub = -1;
   for (int i = 0; i < s->nsubs; i++)
     if (s->subs[i].start <= t && t < s->subs[i].end) s->sub = i;

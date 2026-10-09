@@ -127,6 +127,29 @@ static const char *YUV_FS =
     "  finalColor = vec4(byteAt(b), byteAt(b + 1), byteAt(b + 2), byteAt(b + 3));\n"
     "}\n";
 
+// What a shader node's code is wrapped in. The code defines `vec4 effect(vec2 p)`: the premultiplied color at p, in px
+// from the top left of the node's box (iResolution is its size). `source(p)` reads the node's children drawn into a
+// layer, premultiplied, anywhere in the frame. The node's own uniforms are declared before the code.
+static const char *SHADER_HEAD =
+    "#version 330\n"
+    "out vec4 finalColor;\n"
+    "uniform sampler2D iChannel0; uniform vec4 uRect; uniform vec2 iResolution; uniform float iTime, uOpacity, uFbH;\n"
+    "vec4 source(vec2 p) {\n"
+    "  vec2 s = uRect.xy + p * uRect.zw / iResolution;\n"
+    "  return texture(iChannel0, vec2(s.x, uFbH - s.y) / vec2(textureSize(iChannel0, 0)));\n"
+    "}\n"
+    "vec4 effect(vec2 p);\n"
+    "void main() {\n"
+    "  vec2 s = vec2(gl_FragCoord.x, uFbH - gl_FragCoord.y);\n"
+    "  finalColor = effect((s - uRect.xy) * iResolution / uRect.zw) * uOpacity;\n"
+    "}\n";
+static const char *SHADER_BUILTINS[6] = {"iChannel0", "uRect", "iResolution", "iTime", "uOpacity", "uFbH"};
+
+// One layer per level of nested shader nodes, made when first needed.
+#define MAX_LAYERS 4
+static Fbo layers[MAX_LAYERS];
+static int depth;
+
 static GLuint box_shader, bg_shader, yuv_shader, field_shader, img_shader;
 static int u_i_rect, u_i_radius, u_i_opacity, u_i_gray, u_i_fbh;
 static int u_f_rect, u_f_rect_r, u_f_shape, u_f_radius, u_f_in, u_f_out, u_f_spacing, u_f_opacity, u_f_fbh;
@@ -181,7 +204,29 @@ void render_init(int w, int h) {
   u_yuv_size = glGetUniformLocation(yuv_shader, "uSize");
 }
 
-static bool images_load(Node *n, const char *scene, char *err, int errlen) {
+// The node's code wrapped in SHADER_HEAD, with its uniforms declared, compiled, and its uniforms located.
+static bool shader_load(Node *n, const char *scene, char *err, int errlen) {
+  static const char *TYPES[4] = {"float", "vec2", "vec3", "vec4"};
+  size_t cap = strlen(SHADER_HEAD) + strlen(n->code) + (size_t)n->nuniforms * 96 + 64, len = 0;
+  char *fs = malloc(cap);
+  len += snprintf(fs + len, cap - len, "%s", SHADER_HEAD);
+  for (int i = 0; i < n->nuniforms; i++) len += snprintf(fs + len, cap - len, "uniform %s %s;\n", TYPES[n->uniforms[i].size - 1], n->uniforms[i].name);
+  // Compiler errors then count lines from the start of the node's code.
+  snprintf(fs + len, cap - len, "#line 1\n%s\n", n->code);
+  char log[1024];
+  n->program = gl_program(fs, log, sizeof log);
+  free(fs);
+  if (!n->program) {
+    snprintf(err, errlen, "scene %s: shader does not compile:\n%s", scene, log);
+    return false;
+  }
+  for (int i = 0; i < 6; i++) n->locs[i] = glGetUniformLocation(n->program, SHADER_BUILTINS[i]);
+  for (int i = 0; i < n->nuniforms; i++) n->uniforms[i].loc = glGetUniformLocation(n->program, n->uniforms[i].name);
+  return true;
+}
+
+static bool gpu_load(Node *n, const char *scene, char *err, int errlen) {
+  if (n->is_shader && !shader_load(n, scene, err, errlen)) return false;
   if (n->is_image) {
     int w, h, comp;
     unsigned char *px = stbi_load(n->src, &w, &h, &comp, 4);
@@ -215,11 +260,11 @@ static bool images_load(Node *n, const char *scene, char *err, int errlen) {
     stbi_image_free(px);
   }
   for (int i = 0; i < n->nkids; i++)
-    if (!images_load(&n->kids[i], scene, err, errlen)) return false;
+    if (!gpu_load(&n->kids[i], scene, err, errlen)) return false;
   return true;
 }
 
-bool scene_images_load(Scene *s, char *err, int errlen) { return images_load(&s->root, s->id, err, errlen); }
+bool scene_gpu_load(Scene *s, char *err, int errlen) { return gpu_load(&s->root, s->id, err, errlen); }
 
 void render_yuv(Fbo frame, Fbo target) {
   int size[2] = {frame.w, frame.h};
@@ -444,6 +489,46 @@ static void draw_text(const Scene *s, const Node *n, const Ctx *c) {
   }
 }
 
+static void draw_node(const Scene *s, const Node *n, Ctx c);
+
+// The children into a cleared layer, then the node's effect over its box. Children draw at full opacity; the node's
+// opacity applies to the effect.
+static void draw_shader(const Scene *s, const Node *n, Ctx c) {
+  if (depth == MAX_LAYERS) return;
+  if (!layers[depth].fbo) layers[depth] = gl_fbo((int)fb_w, (int)fb_h);
+  Fbo parent = gl_target(), layer = layers[depth++];
+  gl_begin(layer);
+  gl_clear((Rgba8){0, 0, 0, 0});
+  Ctx inner = c;
+  inner.opacity = 1;
+  for (int i = 0; i < n->nkids; i++) draw_node(s, &n->kids[i], inner);
+  gl_begin(parent);
+  depth--;
+
+  Rectangle r = box_rect(s, n);
+  float rect[4] = {c.xf.s * r.x + c.xf.tx, c.xf.s * r.y + c.xf.ty, c.xf.s * r.width, c.xf.s * r.height};
+  float res[2] = {r.width, r.height};
+  gl_blend(BLEND_PREMULTIPLIED);
+  gl_use(n->program);
+  gl_uniform4f(n->locs[1], rect);
+  gl_uniform2f(n->locs[2], res);
+  gl_uniform1f(n->locs[3], s->t);
+  gl_uniform1f(n->locs[4], c.opacity);
+  gl_uniform1f(n->locs[5], fb_h);
+  for (int i = 0; i < n->nuniforms; i++) {
+    const Uniform *u = &n->uniforms[i];
+    const float *v = s->targets[u->target].cur[P_VALUE].v;
+    if (u->size == 1) gl_uniform1f(u->loc, v[0]);
+    else if (u->size == 2) gl_uniform2f(u->loc, v);
+    else if (u->size == 3) gl_uniform3f(u->loc, v);
+    else gl_uniform4f(u->loc, v);
+  }
+  // The layer is iChannel0 through texture unit 0, which the quad binds; the shader reads it by position, not uv.
+  gl_rect(layer.tex, 1, 1, 0, 0, 1, 1, rect[0], rect[1], rect[2], rect[3], WHITE);
+  gl_flush();
+  gl_blend(BLEND_ALPHA);
+}
+
 static void draw_node(const Scene *s, const Node *n, Ctx c) {
   const Target *t = &s->targets[n->target];
   c.opacity *= t->cur[P_OPACITY].v[0];
@@ -462,6 +547,8 @@ static void draw_node(const Scene *s, const Node *n, Ctx c) {
     draw_text(s, n, &c);
   } else if (n->is_field) {
     draw_field(s, n, &c);
+  } else if (n->is_shader) {
+    draw_shader(s, n, c);
   } else {
     Col fill = grayed(col_of(t->cur[P_FILL]), c.gray), border = grayed(col_of(t->cur[P_BORDER]), c.gray);
     Rectangle r = box_rect(s, n);
@@ -605,7 +692,7 @@ static void bounds_node(Bounds *b, const Node *n, Ctx c, const Node *named, cons
     painted = width > 0;
   } else if (n != &s->root) {
     r = visible(n, box_rect(s, n));
-    painted = n->is_image || n->is_field || col_of(t->cur[P_FILL]).a > 0 || (col_of(t->cur[P_BORDER]).a > 0 && n->border_width > 0);
+    painted = n->is_image || n->is_field || n->is_shader || col_of(t->cur[P_FILL]).a > 0 || (col_of(t->cur[P_BORDER]).a > 0 && n->border_width > 0);
   }
   if (painted && r.width > 0 && r.height > 0) {
     Rectangle o = {c.xf.s * r.x + c.xf.tx, c.xf.s * r.y + c.xf.ty, c.xf.s * r.width, c.xf.s * r.height};
@@ -653,7 +740,7 @@ char *render_bounds(Scene *s, float step) {
     cJSON_AddStringToObject(o, "kind", k % 2 ? "subtitle" : "frame");
     // Under the root, a node without an id of its own has no useful name.
     cJSON_AddStringToObject(o, "id", h->named == &s->root ? "" : s->targets[h->named->target].id);
-    cJSON_AddStringToObject(o, "type", h->n->is_text ? "text" : h->n->is_image ? "image" : h->n->is_field ? "field" : "box");
+    cJSON_AddStringToObject(o, "type", h->n->is_text ? "text" : h->n->is_image ? "image" : h->n->is_field ? "field" : h->n->is_shader ? "shader" : "box");
     if (h->n->is_text && h->n->nspans) cJSON_AddStringToObject(o, "text", h->n->spans[0].text);
     cJSON_AddNumberToObject(o, "t", roundf(h->t * 100) / 100);
     cJSON_AddNumberToObject(o, "seconds", roundf(h->count * step * 100) / 100);

@@ -48,6 +48,8 @@ videos/VIDEO/
   compute x positions from estimated text widths. Row and column children take no x, y or anchor: use `pad`, `gap`,
   `offsetX`/`offsetY`, or `abs: true`.
 - Use `counter` for numbers that count up, and `codeLines` for syntax-highlighted code.
+- For effects (distortion, color, glow), wrap nodes in a `shader`: its GLSL defines `vec4 effect(vec2 p)` and reads
+  the children with `source(p)`. Tween its uniforms with `s.tl.to(id, { uniforms: { name: v } }, t)`.
 - The build type-checks scenes against the DSL, then rejects tweens of unknown ids, flow settings on a box without a
   layout, and ambiguous cue words. Read the error: it says what to change.
 

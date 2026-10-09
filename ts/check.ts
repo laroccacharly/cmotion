@@ -1,6 +1,6 @@
 // Mistakes in a compiled scene that would otherwise render wrong without a word: tweens on ids that don't exist,
-// spans without text, boxes with flow settings but no layout, and flow children positioned by x/y. Returns one
-// message per problem.
+// spans without text, boxes with flow settings but no layout, flow children positioned by x/y, and shader uniforms
+// GLSL can't name. Returns one message per problem.
 import type { Node } from "./dsl";
 
 const FLOW = ["pad", "gap", "align", "justify"] as const;
@@ -15,8 +15,13 @@ export function checkScene(id: string, root: Node, tweens: ReadonlyArray<{ targe
       if (ids.has(n.style.id)) errors.push(`two nodes have the id "${n.style.id}"`);
       ids.add(n.style.id);
     }
+    // A shader's uniforms are targets of their own, "<id>.<name>".
+    for (const name of Object.keys(n.style.uniforms ?? {})) {
+      if (!/^[A-Za-z_]\w*$/u.test(name) || name.startsWith("gl_")) errors.push(`shader ${here}: uniform "${name}" is not a GLSL name`);
+      ids.add(`${n.style.id}.${name}`);
+    }
     // A box without layout places its children by their x/y and doesn't measure them, so these do nothing.
-    if (n.type === "box" && !n.style.layout) {
+    if ((n.type === "box" || n.type === "shader") && !n.style.layout) {
       const flow = FLOW.filter((k) => n.style[k] !== undefined);
       if (flow.length) errors.push(`box ${here} sets ${flow.join(", ")} but no layout; add layout: "row" or "column"`);
     }
