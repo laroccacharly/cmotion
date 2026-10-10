@@ -12,6 +12,7 @@ import { inspect, stills } from "./inspect.ts"
 import { imageDir, musicDir, videoDir, voiceoverDir } from "./layout.ts"
 import { music, MusicGeneration } from "./music.ts"
 import { loadScript, selectScenes } from "./script.ts"
+import { SpeechToText, transcribe, transcriptFile } from "./transcribe.ts"
 import { ElevenLabs, voiceover } from "./voiceover.ts"
 
 const cmotion = Command.make("cmotion").pipe(
@@ -105,6 +106,34 @@ const still = Command.make(
   )
 )
 
+const transcribeCommand = Command.make(
+  "transcribe",
+  {
+    audio: Argument.File("audio", { mustExist: true }).pipe(Argument.withDescription("Audio file to transcribe")),
+    out: Flag.String("output").pipe(
+      Flag.withAlias("o"),
+      Flag.withDescription("JSON path (default: the audio file with a .json extension)"),
+      Flag.optional
+    ),
+    language: Flag.String("language").pipe(Flag.withDescription("Spoken language code (default: detected)"), Flag.optional),
+    diarize: Flag.Boolean("diarize").pipe(Flag.withDescription("Label words with their speaker"), Flag.withDefault(false)),
+    speakers: Flag.Int("speakers").pipe(Flag.withDescription("Expected speakers when diarizing (default: detected)"), Flag.optional),
+    force: Flag.Boolean("force").pipe(Flag.withDescription("Transcribe again even if the JSON exists"), Flag.withDefault(false)),
+  },
+  Effect.fn("transcribeCommand")(function* transcribeCommand({ audio, out, language, diarize, speakers, force }) {
+    yield* transcribe(
+      audio,
+      Option.getOrElse(out, () => transcriptFile(audio)),
+      { language, diarize, speakers },
+      force
+    )
+  })
+).pipe(
+  Command.withDescription(
+    "Transcribe an audio file with ElevenLabs Scribe to JSON: the text and its word timings, in the voiceovers' { text, start, end } shape"
+  )
+)
+
 const inspectCommand = Command.make(
   "inspect",
   {
@@ -139,10 +168,23 @@ const configCommand = Command.make(
   })
 ).pipe(Command.withDescription("Print the config file path and the effective config"))
 
-const app = cmotion.pipe(Command.withSubcommands([voiceoverCommand, images, musicCommand, buildCommand, still, inspectCommand, engine, configCommand, ...credentials.commands]))
+const app = cmotion.pipe(
+  Command.withSubcommands([
+    voiceoverCommand,
+    transcribeCommand,
+    images,
+    musicCommand,
+    buildCommand,
+    still,
+    inspectCommand,
+    engine,
+    configCommand,
+    ...credentials.commands,
+  ])
+)
 
 // The API clients read their keys through the keyring, so it sits under them as well as alongside.
-const AppLayer = Layer.mergeAll(ElevenLabs.layer, OpenAIImages.layer, MusicGeneration.live, Engine.layer).pipe(
+const AppLayer = Layer.mergeAll(ElevenLabs.layer, SpeechToText.layer, OpenAIImages.layer, MusicGeneration.live, Engine.layer).pipe(
   Layer.provideMerge(Layer.merge(BunServices.layer, credentials.layer(bunKeyring())))
 )
 
