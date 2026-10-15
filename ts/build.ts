@@ -126,7 +126,7 @@ export const renderScenes: (
     yield* fs.rename(partial, out).pipe(Effect.andThen(fs.writeFileString(keyFile, key)), Effect.mapError(fsError))
   })
 
-  const selected = video.scenes.flatMap((scene, i) => (ids.length === 0 || ids.includes(scene.id) ? [{ id: scene.id, key: keys[i] ?? "" }] : []))
+  const selected = video.scenes.map((scene, i) => ({ id: scene.id, key: keys[i] ?? "" })).filter(({ id }) => ids.length === 0 || ids.includes(id))
   yield* Effect.forEach(selected, ({ id, key }) => render(id, key), { concurrency: jobs, discard: true })
   return keys
 })
@@ -144,6 +144,12 @@ export interface Background {
 // Seconds of crossfade where a short track repeats.
 const LOOP_FADE = 1
 
+// The filter label of the first i+1 copies crossfaded together.
+const crossfaded = (i: number) => {
+  if (i === 0) return "c0"
+  return `x${i}`
+}
+
 // Writes the music under the video to out, exactly `total` samples at 48kHz: a long track is cut to the video,
 // a short one repeats with a crossfade at each seam. Then gain, a 1s fade in and a 2s fade out. Built on its
 // own and its length checked, so the music can never stop before the video does.
@@ -153,13 +159,13 @@ const musicBed: (background: Background, total: number, out: string) => Effect.E
   const seconds = total / 48000
   const track = yield* duration(background.file)
   if (!(track > LOOP_FADE * 2)) return yield* new BuildError({ message: `music ${background.file} is too short (${track}s)` })
-  const copies = track >= seconds ? 1 : Math.ceil((seconds - LOOP_FADE) / (track - LOOP_FADE))
+  const copies = Math.max(1, Math.ceil((seconds - LOOP_FADE) / (track - LOOP_FADE)))
   const inputs = Array.from({ length: copies }, () => ["-i", background.file]).flat()
   const resampled = Array.from({ length: copies }, (_, i) => `[${i}:a]aresample=48000,aformat=sample_fmts=fltp:channel_layouts=stereo[c${i}];`).join("")
-  const chained = Array.from({ length: copies - 1 }, (_, i) => `[${i === 0 ? "c0" : `x${i}`}][c${i + 1}]acrossfade=d=${LOOP_FADE}[x${i + 1}];`).join("")
+  const chained = Array.from({ length: copies - 1 }, (_, i) => `[${crossfaded(i)}][c${i + 1}]acrossfade=d=${LOOP_FADE}[x${i + 1}];`).join("")
   const fadeOut = Math.max(0, seconds - 2).toFixed(3)
   const shape = `atrim=end_sample=${total},volume=${background.volume},afade=t=in:d=1,afade=t=out:st=${fadeOut}:d=2[bed]`
-  const filter = `${resampled}${chained}[${copies === 1 ? "c0" : `x${copies - 1}`}]${shape}`
+  const filter = `${resampled}${chained}[${crossfaded(copies - 1)}]${shape}`
   yield* run("music bed", "ffmpeg", ["-v", "error", "-y", ...inputs, "-filter_complex", filter, "-map", "[bed]", "-c:a", "pcm_s16le", out])
   const samples = Number.parseInt(yield* run("ffprobe", "ffprobe", ["-v", "error", "-show_entries", "stream=duration_ts", "-of", "csv=p=0", out]), 10)
   if (samples < total) return yield* new BuildError({ message: `music bed is ${(samples / 48000).toFixed(2)}s, shorter than the ${seconds.toFixed(2)}s video` })
@@ -188,7 +194,8 @@ export const joinScenes: (
   const { video } = yield* readVideo(renderJson)
   const { scenes, fps } = video
   // bed:2 is the length-checked bed; joins from before it can have lost their music partway.
-  const musicPart = background ? [`music:${background.key}:${background.volume}:bed:2`] : []
+  const musicPart: string[] = []
+  if (background) musicPart.push(`music:${background.key}:${background.volume}:bed:2`)
   const key = sha(...scenes.map((scene, i) => `${scene.id}:${keys[i] ?? ""}`), ...musicPart)
   if (yield* upToDate(fs, out, keyFile, key)) return yield* Console.log(`  video: cached → ${out}`)
   const files = scenes.map((scene) => join(scenesDir, `${scene.id}.mp4`))
@@ -202,12 +209,14 @@ export const joinScenes: (
   yield* Console.log(`  video: joining ${scenes.length} scenes`)
   const bed = join(scenesDir, "music-bed.wav")
   if (background) yield* musicBed(background, samples.reduce((a, n) => a + n, 0), bed)
-  const inputs = [...files.flatMap((file) => ["-i", file]), ...(background ? ["-i", bed] : [])]
+  const inputs = files.flatMap((file) => ["-i", file])
+  if (background) inputs.push("-i", bed)
   const voice = `${trims}${joined}concat=n=${scenes.length}:v=0:a=1`
-  const filter = background
-    ? `${voice}[voice];[${scenes.length + 1}:a]anull[bed];` +
+  let filter = `${voice}[a]`
+  if (background)
+    filter =
+      `${voice}[voice];[${scenes.length + 1}:a]anull[bed];` +
       "[voice]asplit[v1][v2];[bed][v2]sidechaincompress=threshold=0.03:ratio=4:attack=20:release=400[ducked];[v1][ducked]amix=inputs=2:duration=first:normalize=0[a]"
-    : `${voice}[a]`
   const output = ["-map", "0:v", "-map", "[a]", "-c:v", "copy", "-c:a", "aac", "-b:a", "192k", "-movflags", "+faststart", partial]
   yield* run("join", "ffmpeg", ["-v", "error", "-y", "-f", "concat", "-safe", "0", "-i", concatList, ...inputs, "-filter_complex", filter, ...output])
   yield* fs.rename(partial, out).pipe(Effect.andThen(fs.writeFileString(keyFile, key)), Effect.mapError(fsError))

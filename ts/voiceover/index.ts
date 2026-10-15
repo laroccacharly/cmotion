@@ -16,7 +16,10 @@ export { VoiceoverError } from "./provider.ts"
 const extension = (format: string) => ({ mp3: ".mp3", wav: ".wav", opus: ".opus" })[format.split("_")[0] ?? ""] ?? ".raw"
 
 // ElevenLabs voices by their id, not their name, so renaming a voice keeps its cached voiceovers.
-const voiceId = (script: Script): string => (script.provider === "elevenlabs" ? Voices[script.voice] : FishVoices[script.voice])
+const voiceId = (script: Script): string => {
+  if (script.provider === "elevenlabs") return Voices[script.voice]
+  return FishVoices[script.voice]
+}
 
 // Keep existing ElevenLabs cache keys; OpenRouter generations have their own namespace.
 export const voiceoverKey = (script: Script, text: string): string =>
@@ -26,7 +29,7 @@ export const voiceoverKey = (script: Script, text: string): string =>
       voice: voiceId(script),
       model: script.model,
       format: script.output_format,
-      ...(script.provider === "openrouter" ? { provider: script.provider } : {}),
+      ...(script.provider === "openrouter" && { provider: script.provider }),
     })
   )
 
@@ -38,7 +41,10 @@ export class Voiceover extends Context.Service<Voiceover, VoiceProvider>()("cmot
       const elevenlabs = yield* ElevenLabs
       const openrouter = yield* OpenRouterSpeech
       return Voiceover.of({
-        speak: (text, script) => (script.provider === "elevenlabs" ? elevenlabs.speak(text, script) : openrouter.speak(text, script)),
+        speak: (text, script) => {
+          if (script.provider === "elevenlabs") return elevenlabs.speak(text, script)
+          return openrouter.speak(text, script)
+        },
       })
     })
   )

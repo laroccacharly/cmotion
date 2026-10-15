@@ -32,7 +32,7 @@ export const parseFrame = (spec: string): Option.Option<Frame> => {
   const seconds = spec.match(/^([\w-]+):(\d+(?:\.\d+)?)$/u)
   if (seconds) return Option.some({ scene: seconds[1]!, kind: "seconds", seconds: Number(seconds[2]) })
   const word = spec.match(/^([\w-]+)@([^#+-]+)(?:#(\d+))?([+-]\d+(?:\.\d+)?)?$/u)
-  if (word) return Option.some({ scene: word[1]!, kind: "word", word: word[2]!, ...(word[3] ? { n: Number(word[3]) } : {}), shift: Number(word[4] ?? 0) })
+  if (word) return Option.some({ scene: word[1]!, kind: "word", word: word[2]!, ...(word[3] && { n: Number(word[3]) }), shift: Number(word[4] ?? 0) })
   if (/^[\w-]+$/u.test(spec)) return Option.some({ scene: spec, kind: "end" })
   return Option.none()
 }
@@ -68,12 +68,24 @@ const Issue = Schema.Struct({
 })
 const Issues = Schema.fromJsonString(Schema.Array(Issue))
 
+const named = (type: string, id: string) => {
+  if (id) return `${type} "${id}"`
+  return `${type} without an id`
+}
+
+// The node's text when it says more than its id, cut to 30 characters.
+const quoted = (text: string, id: string) => {
+  if (text === id) return ""
+  if (text.length > 30) return ` (${JSON.stringify(`${text.slice(0, 30)}…`)})`
+  return ` (${JSON.stringify(text)})`
+}
+
+const WHERE = { frame: "leaves the frame", subtitle: "is under the subtitle" } as const
+
 /** One readable line per issue the engine found in a scene. */
 export const describeIssues = (scene: string, issues: ReadonlyArray<typeof Issue.Type>): string[] =>
   issues.map(({ kind, id, type, text, t, seconds, rect: [x, y, w, h] }) => {
-    const what = `${type}${id ? ` "${id}"` : " without an id"}${text !== undefined && text !== id ? ` (${JSON.stringify(text.length > 30 ? `${text.slice(0, 30)}…` : text)})` : ""}`
-    const where = kind === "frame" ? "leaves the frame" : "is under the subtitle"
-    return `  ! ${scene} ${t.toFixed(2)}s: ${what} ${where} for ${seconds.toFixed(2)}s, first at x ${x}..${x + w}, y ${y}..${y + h}`
+    return `  ! ${scene} ${t.toFixed(2)}s: ${named(type, id)}${quoted(text ?? id, id)} ${WHERE[kind]} for ${seconds.toFixed(2)}s, first at x ${x}..${x + w}, y ${y}..${y + h}`
   })
 
 // ---------- sheets ----------
@@ -103,7 +115,8 @@ export const sheetFilter = (labels: ReadonlyArray<string>, frame: { width: numbe
   )
   const columns = Math.min(sheet.columns, labels.length)
   const layout = labels.map((_, i) => `${(i % columns) * (w + GAP)}_${Math.floor(i / columns) * (h + GAP)}`).join("|")
-  const stack = labels.length === 1 ? "[c0]null" : `${labels.map((_, i) => `[c${i}]`).join("")}xstack=inputs=${labels.length}:layout=${layout}:fill=${BACKDROP}`
+  let stack = "[c0]null"
+  if (labels.length > 1) stack = `${labels.map((_, i) => `[c${i}]`).join("")}xstack=inputs=${labels.length}:layout=${layout}:fill=${BACKDROP}`
   return `${cells.join("")}${stack},pad=iw+${GAP * 2}:ih+${GAP * 2}:${GAP}:${GAP}:color=${BACKDROP}[sheet]`
 }
 
@@ -195,7 +208,9 @@ export const stills: (
     if (!scene) return yield* new BuildError({ message: `no scene ${frame.scene}` })
     const t = frameTime(frame, { duration: scene.duration, words: yield* sceneWords(dir, script, scene.id), leadIn: script.lead_in }, video.fps)
     if (typeof t === "string") return yield* new BuildError({ message: t })
-    shots.push({ scene: scene.id, t, label: spec === `${scene.id}:${t}` ? spec : `${spec}  ${t.toFixed(2)}s` })
+    let label = `${spec}  ${t.toFixed(2)}s`
+    if (spec === `${scene.id}:${t}`) label = spec
+    shots.push({ scene: scene.id, t, label })
   }
   yield* shoot(renderJson, stillsDir(dir), specs.join("_").slice(0, 60), shots, sheet, out)
 })

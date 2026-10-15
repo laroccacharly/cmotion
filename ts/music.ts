@@ -9,7 +9,7 @@ import type { Music } from "./script.ts"
 
 // Keep existing OpenRouter cache keys; Gemini generations have their own namespace.
 export const musicKey = (music: Music): string =>
-  sha(canonicalJson({ prompt: music.prompt.trim(), model: music.model, ...(music.provider === "gemini" ? { provider: music.provider } : {}) }))
+  sha(canonicalJson({ prompt: music.prompt.trim(), model: music.model, ...(music.provider === "gemini" && { provider: music.provider }) }))
 
 export interface GeneratedMusic {
   readonly audio: Uint8Array
@@ -48,7 +48,7 @@ const decodeChunk = Schema.decodeUnknownEffect(Schema.fromJsonString(Chunk))
 export const readStream: (body: string) => Effect.Effect<{ readonly audio: Uint8Array; readonly lyrics: string }, MusicError> = Effect.fn("readStream")(function* readStream(
   body: string
 ) {
-  const events = body.split("\n").flatMap((line) => (line.startsWith("data: ") ? [line.slice(6).trim()] : []))
+  const events = body.split("\n").filter((line) => line.startsWith("data: ")).map((line) => line.slice(6).trim())
   let audio = ""
   let lyrics = ""
   for (const event of events.filter((data) => data !== "[DONE]")) {
@@ -156,7 +156,10 @@ export class MusicGeneration extends Context.Service<MusicGeneration, MusicProvi
     const openrouter = yield* OpenRouterMusic
     const gemini = yield* GeminiMusic
     return MusicGeneration.of({
-      generate: (music) => (music.provider === "gemini" ? gemini : openrouter).generate(music),
+      generate: (music) => {
+        if (music.provider === "gemini") return gemini.generate(music)
+        return openrouter.generate(music)
+      },
     })
   }))
   static readonly live = MusicGeneration.layer.pipe(Layer.provide(Layer.merge(OpenRouterMusic.layer, GeminiMusic.layer)))

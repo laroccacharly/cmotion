@@ -34,7 +34,8 @@ if (!dirArg) {
 const dir = resolve(dirArg);
 const voiceDir = voiceoverDir(dir);
 const imageDir = generatedImages(dir);
-const out = outArg ? resolve(outArg) : renderFile(dir);
+let out = renderFile(dir);
+if (outArg) out = resolve(outArg);
 
 const script = Schema.decodeSync(Schema.fromJsonString(Script), { onExcessProperty: "error" })(readFileSync(scriptFile(dir), "utf8"));
 const leadIn = script.lead_in;
@@ -42,9 +43,8 @@ const tail = script.tail;
 
 /** Every <key>.json in dir, with its key. */
 function metas(dir: string) {
-  return existsSync(dir)
-    ? readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => ({ key: f.slice(0, -5), meta: JSON.parse(readFileSync(join(dir, f), "utf8")) }))
-    : [];
+  if (!existsSync(dir)) return [];
+  return readdirSync(dir).filter((f) => f.endsWith(".json")).map((f) => ({ key: f.slice(0, -5), meta: JSON.parse(readFileSync(join(dir, f), "utf8")) }));
 }
 
 /** The scene's voiceover for the script's voice, model and format: the file voiceover/index.ts wrote under this key. */
@@ -77,7 +77,7 @@ function pngSize(scene: ScriptScene, id: string, path: string, hashed = false): 
   if (!existsSync(path)) throw new Error(`scene ${scene.id}: image "${id}" has no file at ${path}`);
   const png = readFileSync(path);
   if (png.toString("latin1", 1, 4) !== "PNG") throw new Error(`scene ${scene.id}: image "${id}" at ${path} is not a PNG`);
-  return { path, w: png.readUInt32BE(16), h: png.readUInt32BE(20), ...(hashed ? { hash: sha(png) } : {}) };
+  return { path, w: png.readUInt32BE(16), h: png.readUInt32BE(20), ...(hashed && { hash: sha(png) }) };
 }
 
 /** Image nodes get their file and a display size: missing sides follow the image's aspect, fit inside the frame. */
@@ -135,20 +135,23 @@ function subtitles(words: Word[], offset: number): Cue[] {
   });
 }
 
-const pad4 = (p: number | number[] | undefined) =>
-  p === undefined ? undefined : typeof p === "number" ? [p, p, p, p] : p.length === 2 ? [p[0], p[1], p[0], p[1]] : p;
+function pad4(p: number | number[]) {
+  if (typeof p === "number") return [p, p, p, p];
+  if (p.length === 2) return [p[0], p[1], p[0], p[1]];
+  return p;
+}
 
 function serialize(n: Node): unknown {
   const { pad, fill, border, bar, background: _, ...rest } = n.style;
   return {
     type: n.type,
     ...rest,
-    ...(rest.color ? { color: color(rest.color) } : {}),
-    ...(pad !== undefined ? { pad: pad4(pad) } : {}),
-    ...(fill ? { fill: color(fill) } : {}),
-    ...(border ? { border: color(border) } : {}),
-    ...(bar ? { bar: { width: bar.width, color: color(bar.color) } } : {}),
-    ...(n.spans ? { spans: n.spans.map((s) => ({ ...s, ...(s.color ? { color: color(s.color) } : {}) })) } : {}),
+    ...(rest.color && { color: color(rest.color) }),
+    ...(pad !== undefined && { pad: pad4(pad) }),
+    ...(fill && { fill: color(fill) }),
+    ...(border && { border: color(border) }),
+    ...(bar && { bar: { width: bar.width, color: color(bar.color) } }),
+    ...(n.spans && { spans: n.spans.map((s) => ({ ...s, ...(s.color && { color: color(s.color) }) })) }),
     children: n.children.map(serialize),
   };
 }
@@ -169,7 +172,8 @@ for (const scene of script.scenes.filter((scene) => only.length === 0 || only.in
     root = build(ctx);
   } catch (error) {
     // A scene's own mistake, like a cue the voiceover doesn't say: report it with the rest and move on.
-    problems.push(error instanceof Error ? error.message : String(error));
+    if (error instanceof Error) problems.push(error.message);
+    else problems.push(String(error));
     continue;
   }
   root.style.id = "scene";
@@ -178,8 +182,8 @@ for (const scene of script.scenes.filter((scene) => only.length === 0 || only.in
   ctx.tl.to("scene", { opacity: 0 }, duration - 0.4, { duration: 0.4 });
   problems.push(...checkScene(scene.id, root, ctx.tl.tweens));
   const bg = root.style.background;
-  const background = bg ? { background: { inner: color(bg.inner), outer: color(bg.outer) } } : {};
-  const subs = script.subtitles ? { subtitles: subtitles(v.words, leadIn) } : {};
+  const background = bg && { background: { inner: color(bg.inner), outer: color(bg.outer) } };
+  const subs = script.subtitles && { subtitles: subtitles(v.words, leadIn) };
   scenes.push({ id: scene.id, duration, audio: v.audio, audioStart: leadIn, ...background, root: serialize(root), tweens: ctx.tl.tweens, ...subs });
 }
 

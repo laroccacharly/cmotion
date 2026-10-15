@@ -66,8 +66,10 @@ export class Engine extends Context.Service<
       const render = (renderJson: string, sceneId: string, out: string, encoding: Encoding) =>
         engine(`scene ${sceneId}: cmotion`, out, [renderJson, "-s", sceneId, "--preset", encoding.preset, "--crf", String(encoding.crf)]).pipe(Effect.asVoid)
 
-      const still = (renderJson: string, at: string, out: string, bounds = false) =>
-        engine(`still ${at}: cmotion`, out, [renderJson, "--still", at, ...(bounds ? ["--bounds"] : [])]).pipe(Effect.map((stdout) => (bounds ? stdout : "")))
+      const still = (renderJson: string, at: string, out: string, bounds = false) => {
+        if (bounds) return engine(`still ${at}: cmotion`, out, [renderJson, "--still", at, "--bounds"])
+        return engine(`still ${at}: cmotion`, out, [renderJson, "--still", at]).pipe(Effect.as(""))
+      }
 
       return Engine.of({ binary, render, still })
     })

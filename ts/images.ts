@@ -12,6 +12,17 @@ export const imageSpec = (image: GeneratedImage) => ({ prompt: image.prompt.trim
 
 export const imageKey = (image: GeneratedImage, model: string): string => sha(canonicalJson({ ...imageSpec(image), model }))
 
+// OpenAI has no "auto" quality; ask for its best.
+const apiQuality = (quality: GeneratedImage["quality"]) => {
+  if (quality === "auto") return "high"
+  return quality
+}
+
+const background = (transparent: boolean) => {
+  if (transparent) return "transparent"
+  return "opaque"
+}
+
 const Generated = Schema.Struct({ data: Schema.NonEmptyArray(Schema.Struct({ b64_json: Schema.String })) })
 
 export class ImageError extends Schema.TaggedError<ImageError>()("ImageError", {
@@ -38,8 +49,8 @@ export class OpenAIImages extends Context.Service<
             model,
             prompt: image.prompt,
             size: image.size,
-            quality: image.quality === "auto" ? "high" : image.quality,
-            background: image.transparent ? "transparent" : "opaque",
+            quality: apiQuality(image.quality),
+            background: background(image.transparent),
             output_format: "png",
             n: 1,
           }),
@@ -95,7 +106,10 @@ export const sceneImages: (
 ) {
   const jobs = new Map(
     scenes.flatMap((scene) =>
-      scene.images.flatMap((image) => ("prompt" in image ? [[imageKey(image, model), { image, sceneId: scene.id }] as const] : []))
+      scene.images.flatMap((image) => {
+        if (!("prompt" in image)) return []
+        return [[imageKey(image, model), { image, sceneId: scene.id }] as const]
+      })
     )
   )
   yield* Effect.forEach(jobs.values(), ({ image, sceneId }) => sceneImage(image, sceneId, dir, model), { concurrency, discard: true })

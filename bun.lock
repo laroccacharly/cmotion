@@ -15,7 +15,7 @@
         "@types/bun": "^1.4.2",
         "oxlint": "^1.87.0",
         "oxlint-tsgolint": "^7.0.2003",
-        "ts-lint": "github:laroccacharly/ts-lint#v0.3.0",
+        "ts-lint": "github:laroccacharly/ts-lint#v0.5.0",
       },
     },
   },
@@ -146,7 +146,7 @@
 
     "oxlint-tsgolint": ["oxlint-tsgolint@7.0.2003", "", { "optionalDependencies": { "@oxlint-tsgolint/darwin-arm64": "7.0.2003", "@oxlint-tsgolint/darwin-x64": "7.0.2003", "@oxlint-tsgolint/linux-arm64": "7.0.2003", "@oxlint-tsgolint/linux-x64": "7.0.2003", "@oxlint-tsgolint/win32-arm64": "7.0.2003", "@oxlint-tsgolint/win32-x64": "7.0.2003" }, "bin": { "tsgolint": "./bin/tsgolint.js" } }, "sha512-VnK4zlqgmgq/7ZcjzCk/WpN8kKFsYGcB85Io9qT3wL4K8Un3RKmJkp793crNETieMusPMKOA4a+Mw2wbteI6TQ=="],
 
-    "ts-lint": ["ts-lint@github:laroccacharly/ts-lint#6f579fb", { "peerDependencies": { "@effect/tsgo": "^0.51.1" }, "bin": { "ts-lint-effect": "./effect-lint.ts" } }, "laroccacharly-ts-lint-6f579fb", "sha512-knzPG4Tost1iszAql5ODFAZpIyRJsTlXGDtOpc0cJQ9msnKxPF9dTgoG3jupxXAc2FB73sVcuQnMrZCdcYPzzA=="],
+    "ts-lint": ["ts-lint@github:laroccacharly/ts-lint#fb8d2c5", { "peerDependencies": { "@effect/tsgo": "^0.51.1" }, "bin": { "ts-lint-effect": "./effect-lint.ts" } }, "laroccacharly-ts-lint-fb8d2c5", "sha512-xrWlYwP0f3StY/NKzGYBDorWw91rzS4NjDTG7CVy3N6L/8wchsCdo8v6ykEn1HICCqAlCsyFPF+jR4aXf7q1Qg=="],
 
     "typescript": ["typescript@7.0.2", "", { "optionalDependencies": { "@typescript/typescript-aix-ppc64": "7.0.2", "@typescript/typescript-darwin-arm64": "7.0.2", "@typescript/typescript-darwin-x64": "7.0.2", "@typescript/typescript-freebsd-arm64": "7.0.2", "@typescript/typescript-freebsd-x64": "7.0.2", "@typescript/typescript-linux-arm": "7.0.2", "@typescript/typescript-linux-arm64": "7.0.2", "@typescript/typescript-linux-loong64": "7.0.2", "@typescript/typescript-linux-mips64el": "7.0.2", "@typescript/typescript-linux-ppc64": "7.0.2", "@typescript/typescript-linux-riscv64": "7.0.2", "@typescript/typescript-linux-s390x": "7.0.2", "@typescript/typescript-linux-x64": "7.0.2", "@typescript/typescript-netbsd-arm64": "7.0.2", "@typescript/typescript-netbsd-x64": "7.0.2", "@typescript/typescript-openbsd-arm64": "7.0.2", "@typescript/typescript-openbsd-x64": "7.0.2", "@typescript/typescript-sunos-x64": "7.0.2", "@typescript/typescript-win32-arm64": "7.0.2", "@typescript/typescript-win32-x64": "7.0.2" }, "bin": { "tsc": "bin/tsc" } }, "sha512-8FYau96o3NKOhbjKi/qNvG/W5jhzxkbdm5sj9AbZ/5T5sWqn3hJgLfGx27sRKZWTvyzCP8dLRBTf5tBTSRVUNA=="],
 

@@ -19,7 +19,8 @@ export function color(css: string): Color {
   const hex = css.match(/^#([0-9a-f]{3}|[0-9a-f]{6})$/i);
   if (hex) {
     const s = hex[1]!;
-    const h = s.length === 3 ? s.replace(/./g, (c) => c + c) : s;
+    let h = s;
+    if (s.length === 3) h = s.replace(/./g, (c) => c + c);
     return [0, 2, 4].map((i) => parseInt(h.slice(i, i + 2), 16) / 255).concat(1) as Color;
   }
   const fn = css.match(/^rgba?\(([^)]+)\)$/);
@@ -105,12 +106,17 @@ export const field = (style: Style & { shape: string }): Node => ({ type: "field
 export const image = <const S extends Style = {}>(src: string, style?: S): NodeOf<S> =>
   ({ type: "image", style: { ...style, src }, children: [] }) as Node as NodeOf<S>;
 
+const span = (piece: string | Span): Span => {
+  if (typeof piece === "string") return { text: piece };
+  return piece;
+};
+
 /** A single line of text: a string, or pieces where a plain string is a span in the node's own style. */
 export const text = <const S extends Style = {}>(content: string | (string | Span)[], style?: S): NodeOf<S> =>
   ({
     type: "text",
     style: style ?? {},
-    spans: typeof content === "string" ? [{ text: content }] : content.map((piece) => (typeof piece === "string" ? { text: piece } : piece)),
+    spans: [content].flat().map(span),
     children: [],
   }) as Node as NodeOf<S>;
 
@@ -147,7 +153,10 @@ export type TweenOpts = { duration?: number; ease?: Ease; stagger?: number };
 
 type Tween = { target: string; prop: string; from?: number | Color; to: number | Color; start: number; dur: number; ease?: Ease };
 
-const value = (prop: string, v: number | string): number | Color => (typeof v === "string" ? color(v) : v);
+const value = (prop: string, v: number | string): number | Color => {
+  if (typeof v === "string") return color(v);
+  return v;
+};
 
 // The engine's names for props the DSL names differently.
 const ENGINE_PROP: Record<string, string> = { offsetX: "x", offsetY: "y" };
@@ -156,7 +165,7 @@ export class Timeline {
   tweens: Tween[] = [];
 
   private add(targets: string | string[], from: Props | null, to: Props, t: number, o: TweenOpts) {
-    const list = Array.isArray(targets) ? targets : [targets];
+    const list = [targets].flat();
     list.forEach((target, i) => {
       for (const [key, v] of Object.entries(to)) {
         if (v === undefined) continue;
@@ -164,7 +173,7 @@ export class Timeline {
         const prop = ENGINE_PROP[key] ?? key;
         this.tweens.push({
           target, prop, to: value(prop, v), start: t + i * (o.stagger ?? 0), dur: o.duration ?? 0.5, ease: o.ease,
-          ...(f !== undefined ? { from: value(prop, f) } : {}),
+          ...(f !== undefined && { from: value(prop, f) }),
         });
       }
     });
@@ -190,7 +199,7 @@ export class SceneCtx {
    * cue never lands on the wrong occurrence by default.
    */
   at = (cue: string, n?: number): number => {
-    const hits = this.words.flatMap((w, i) => (normalize(w.text) === normalize(cue) ? [i] : []));
+    const hits = [...this.words.keys()].filter((i) => normalize(this.words[i]!.text) === normalize(cue));
     const where = (i: number) => `"…${this.words.slice(Math.max(0, i - 2), i + 3).map((w) => w.text).join(" ")}…" at ${this.words[i]!.start.toFixed(2)}s`;
     if (hits.length === 0) throw new Error(`scene ${this.id}: cue "${cue}" is not in the voiceover`);
     if (n === undefined && hits.length > 1)
@@ -213,6 +222,13 @@ export type SceneFn = (s: SceneCtx) => Node;
 
 export type CodeClass = "kw" | "fn" | "str" | "p" | "ty" | "cm" | null;
 
+// A name is a function when called, a type when capitalized.
+const nameClass = (name: string, next: string | undefined): CodeClass => {
+  if (next === "(") return "fn";
+  if (/^[A-Z]/.test(name)) return "ty";
+  return null;
+};
+
 const KW = new Set(["const", "function*", "yield*", "new", "readonly", "return", "=>"]);
 
 /** Splits one line of TypeScript into classed pieces (the same rules as Scene.code in motion/shared/scene.js). */
@@ -233,7 +249,7 @@ export function highlight(src: string): { text: string; cls: CodeClass }[] {
       const tail = parts.pop()!;
       if (parts.length) out.push({ text: parts.join(".") + ".", cls: null });
       const next = src[m.index + all.length];
-      out.push({ text: tail, cls: next === "(" ? "fn" : /^[A-Z]/.test(tail) ? "ty" : null });
+      out.push({ text: tail, cls: nameClass(tail, next) });
     }
   }
   if (last < src.length) out.push({ text: src.slice(last), cls: null });
@@ -253,7 +269,7 @@ export function codeLines(src: string, paint: (cls: CodeClass) => Partial<Span>)
       .split(/(⟦[^⟧]+⟧)/)
       .flatMap((part) => {
         const m = part.match(/^⟦([\w-]+)\|(.+)⟧$/);
-        const pieces = highlight(m ? m[2]! : part).map((p) => ({ text: p.text, ...paint(p.cls), ...(m ? { tok: m[1] } : {}) }));
+        const pieces = highlight(m?.[2] ?? part).map((p) => ({ text: p.text, ...paint(p.cls), ...(m && { tok: m[1] }) }));
         return pieces.filter((p) => p.text.length);
       }),
   );

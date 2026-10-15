@@ -73,7 +73,7 @@ test(
   async () => {
     const { out, frames, changed, audio } = await Effect.runPromise(check.pipe(Effect.provide(Engine.layer.pipe(Layer.provideMerge(BunServices.layer)))))
     expect(frames[1], `frame count of ${out} differs from hook.golden.mp4`).toBe(frames[0])
-    const worst = changed.reduce((max, share, frame) => (share > changed[max]! ? frame : max), 0)
+    const worst = changed.indexOf(Math.max(...changed))
     expect(changed[worst]!, `frame ${worst} of ${out} differs from hook.golden.mp4 in ${(changed[worst]! * 100).toFixed(3)}% of its pixels`).toBeLessThanOrEqual(MAX_CHANGED)
     expect(audio[1], `audio of ${out} differs from hook.golden.mp4`).toBe(audio[0])
   },

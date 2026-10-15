@@ -7,7 +7,7 @@ const sortKeys = (value: Schema.Json): Schema.Json => {
   if (value === null || typeof value !== "object") return value
   return Object.fromEntries(
     Object.entries(value)
-      .toSorted(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .toSorted(([a], [b]) => Number(a > b) - Number(a < b))
       .map(([k, v]) => [k, sortKeys(v)])
   )
 }

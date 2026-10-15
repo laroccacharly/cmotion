@@ -21,13 +21,23 @@ export const W = 1920;
 export const BAD = { fg: C.red, bg: "rgba(248, 113, 113, 0.16)" };
 export const GOOD = { fg: C.green, bg: "rgba(74, 222, 128, 0.14)" };
 
-const paint = (cls: CodeClass): Partial<Span> =>
-  cls === "cm" ? { color: C.cm, font: "mono-400i" } : cls === "p" ? { color: C.punct } : cls ? { color: C[cls] } : {};
+const paint = (cls: CodeClass): Partial<Span> => {
+  if (cls === "cm") return { color: C.cm, font: "mono-400i" };
+  if (cls === "p") return { color: C.punct };
+  if (cls) return { color: C[cls] };
+  return {};
+};
+
+// An empty line still takes its height.
+const nonEmpty = (spans: Span[]): Span[] => {
+  if (spans.length) return spans;
+  return [{ text: " " }];
+};
 
 /** `.ln` lines: 32px/1.75 JetBrains Mono, one text node per line with ids `${prefix}-ln0`, `-ln1`, ... */
 export function code(src: string, prefix: string, size = 32, style: Style = {}): Node[] {
   return codeLines(src, paint).map((spans, i) =>
-    text(spans.length ? spans : [{ text: " " }], { id: `${prefix}-ln${i}`, font: "mono-400", size, lineHeight: size * 1.75, ...style }),
+    text(nonEmpty(spans), { id: `${prefix}-ln${i}`, font: "mono-400", size, lineHeight: size * 1.75, ...style }),
   );
 }
 
@@ -42,14 +52,19 @@ export const panel = (style: Style, ...children: (Node | Node[])[]) =>
 export const file = (name: string) => text(name, { font: "inter-500", size: 22, color: C.dim, h: 22 * 1.21 + 22 });
 
 /** `.badge` (green) or `.badge.red`. */
+const RED: Style = { color: C.red, fill: "rgba(248, 113, 113, 0.1)", border: "rgba(248, 113, 113, 0.6)" };
+const GREEN: Style = { color: C.green, fill: "rgba(74, 222, 128, 0.1)", border: "rgba(74, 222, 128, 0.45)" };
+const tone = (red?: boolean) => {
+  if (red) return RED;
+  return GREEN;
+};
+
 export function badge(label: string | Span[], style: Style & { red?: boolean } = {}): Node {
   const { red, font = "inter-600", size = 36, ...rest } = style;
   return box(
     {
       layout: "row", align: "center", pad: [14, 30], radius: 999, borderWidth: 2,
-      color: red ? C.red : C.green,
-      fill: red ? "rgba(248, 113, 113, 0.1)" : "rgba(74, 222, 128, 0.1)",
-      border: red ? "rgba(248, 113, 113, 0.6)" : "rgba(74, 222, 128, 0.45)",
+      ...tone(red),
       ...rest,
     },
     text(label, { font, size }),

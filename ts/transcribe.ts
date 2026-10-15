@@ -49,8 +49,8 @@ export const wordsFromScribe: (words: ReadonlyArray<typeof ScribeWord.Type>, dia
     if (word.type === "spacing" || word.start === undefined || word.end === undefined) return []
     const text = word.text.trim()
     if (text === "") return []
-    const speaker = diarize && word.speaker_id !== undefined ? { speaker: word.speaker_id } : {}
-    return [{ text: word.type === "audio_event" ? `[${text}]` : text, start: word.start, end: word.end, ...speaker }]
+    const shown = word.type === "audio_event" && `[${text}]`
+    return [{ text: shown || text, start: word.start, end: word.end, ...(diarize && word.speaker_id !== undefined && { speaker: word.speaker_id }) }]
   })
 
 export class TranscribeError extends Schema.TaggedError<TranscribeError>()("TranscribeError", {

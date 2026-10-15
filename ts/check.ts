@@ -6,11 +6,17 @@ import type { Node } from "./dsl";
 const FLOW = ["pad", "gap", "align", "justify"] as const;
 const PLACE = ["x", "y", "relX", "relY", "anchor"] as const;
 
+/** A node's id in quotes, or its path when it has none. */
+const named = (id: string, path: string) => {
+  if (id) return `"${id}"`;
+  return path;
+};
+
 export function checkScene(id: string, root: Node, tweens: ReadonlyArray<{ target: string }>): string[] {
   const errors: string[] = [];
   const ids = new Set<string>();
   const walk = (n: Node, path: string) => {
-    const here = n.style.id ? `"${n.style.id}"` : path;
+    const here = named(n.style.id ?? "", path);
     if (n.style.id) {
       if (ids.has(n.style.id)) errors.push(`two nodes have the id "${n.style.id}"`);
       ids.add(n.style.id);
@@ -27,7 +33,7 @@ export function checkScene(id: string, root: Node, tweens: ReadonlyArray<{ targe
         const place = PLACE.filter((p) => [k.style[p]].flat().some((v) => v !== undefined && v !== 0));
         if (place.length && !k.style.abs)
           errors.push(
-            `${k.type} ${k.style.id ? `"${k.style.id}"` : `${here} > ${k.type} ${i}`} sets ${place.join(", ")} inside the ${n.style.layout} ${here}, which ignores them; use pad or gap, a tween's offsetX/offsetY, or abs: true`
+            `${k.type} ${named(k.style.id ?? "", `${here} > ${k.type} ${i}`)} sets ${place.join(", ")} inside the ${n.style.layout} ${here}, which ignores them; use pad or gap, a tween's offsetX/offsetY, or abs: true`
           );
       });
     n.spans?.forEach((span, i) => {
@@ -41,9 +47,9 @@ export function checkScene(id: string, root: Node, tweens: ReadonlyArray<{ targe
   const unknown = [...new Set(tweens.map((t) => t.target).filter((t) => !ids.has(t)))];
   for (const target of unknown) {
     const prefix = target.replace(/\d+$/u, "");
-    const near = prefix !== target ? [...ids].filter((i) => i.startsWith(prefix) && /^\d+$/u.test(i.slice(prefix.length))) : [];
+    const near = [...ids].filter((i) => prefix !== target && i.startsWith(prefix) && /^\d+$/u.test(i.slice(prefix.length)));
     const nums = near.map((i) => Number(i.slice(prefix.length))).toSorted((a, b) => a - b);
-    const hint = nums.length ? `; the ids are ${prefix}${nums[0]} to ${prefix}${nums.at(-1)}` : "";
+    const hint = (nums.length > 0 && `; the ids are ${prefix}${nums[0]} to ${prefix}${nums.at(-1)}`) || "";
     errors.push(`a tween targets "${target}", which no node has${hint}`);
   }
   return errors.map((e) => `scene ${id}: ${e}`);
