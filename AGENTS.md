@@ -14,7 +14,7 @@ Each video lives in `videos/VIDEO/`, under the project root (`--root`, default `
 
 ```
 videos/VIDEO/
-  script.json      the scenes, with each one's id, title, visual and exact voiceover, plus voice, subtitles and music
+  script.json      the scenes, with each one's id, title, visual and exact voiceover, plus provider, voice, subtitles and music
   theme.ts         the look: palette, background and shared components, imported by scenes as `../theme`
   scenes/<id>.ts   one file per scene, written with the DSL (`import type { SceneCtx } from "cmotion"`)
   script.mp4       the joined video
@@ -27,8 +27,11 @@ videos/VIDEO/
 1. **Script.** Write `script.json` first. It is the single source of truth for each scene's `id` and `voiceover`. A
    scene can list `images` to generate (`prompt`, `size`, `quality`, `transparent`) or take from a `file`. Add
    `"music": { "prompt": ... }` for background music.
-2. **Voiceovers.** `bun cmotion voiceover VIDEO` generates them with ElevenLabs. The word timings it caches are what
-   scenes are timed to, so write scenes after this step.
+2. **Voiceovers.** `bun cmotion voiceover VIDEO` generates them. `"provider": "elevenlabs"` (the default) returns the
+   word timings alongside the audio; `"provider": "openrouter"` speaks with `fish-audio/drama-3` in a Fish Audio voice and
+   recovers them by transcribing the audio with ElevenLabs Scribe, so it needs both keys. Each provider's voice names are
+   listed in its file under `ts/voiceover/`. The word timings it caches are what scenes are
+   timed to, so write scenes after this step.
 3. **Theme and scenes.** Put colors (through `palette`), the background and reusable pieces in `theme.ts`. Each scene
    exports a function from `SceneCtx` to a node tree and adds tweens to `s.tl`.
 4. **Check frames.** `bun cmotion still VIDEO <frame>...` renders frames without a full render: `<id>` (the settled

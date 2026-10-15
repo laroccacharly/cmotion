@@ -13,7 +13,7 @@ import { color, type Node, SceneCtx, type SceneFn, type Word } from "./dsl";
 import { imageDir as generatedImages, renderFile, sceneFile, scriptFile, voiceoverDir } from "./layout";
 import { Schema } from "effect";
 import { type Scene as ScriptScene, Script } from "./script";
-import { voiceoverKey } from "./voiceover";
+import { voiceoverKey } from "./voiceover/index.ts";
 import { sha } from "./key";
 import { checkScene } from "./check";
 
@@ -47,7 +47,7 @@ function metas(dir: string) {
     : [];
 }
 
-/** The scene's voiceover for the script's voice, model and format: the file voiceover.ts wrote under this key. */
+/** The scene's voiceover for the script's voice, model and format: the file voiceover/index.ts wrote under this key. */
 function voice(scene: ScriptScene): { audio: string; words: Word[]; duration: number } {
   const meta = join(voiceDir, `${voiceoverKey(script, scene.voiceover.trim())}.json`);
   if (!existsSync(meta)) throw new Error(`scene ${scene.id}: no voiceover; run \`cmotion voiceover\` first`);

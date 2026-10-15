@@ -7,7 +7,7 @@ import { Console, Context, Effect, FileSystem, Layer, Option, Redacted, Schema }
 import { FetchHttpClient, HttpClient, HttpClientRequest, HttpClientResponse } from "effect/http"
 import { type CredentialsError, Keyring } from "effect-lib/credentials"
 import { ElevenLabsKey } from "./config.ts"
-import type { Word } from "./voiceover.ts"
+import type { Word } from "./voiceover/index.ts"
 
 export const SCRIBE_URL = "https://api.elevenlabs.io/v1/speech-to-text"
 // Scribe v2 handles real recordings and audio events, and gives per-word timings.

@@ -13,7 +13,7 @@ import { imageDir, musicDir, videoDir, voiceoverDir } from "./layout.ts"
 import { music, MusicGeneration } from "./music.ts"
 import { loadScript, selectScenes } from "./script.ts"
 import { SpeechToText, transcribe, transcriptFile } from "./transcribe.ts"
-import { ElevenLabs, voiceover } from "./voiceover.ts"
+import { Voiceover, voiceover } from "./voiceover/index.ts"
 
 const cmotion = Command.make("cmotion").pipe(
   Command.withSharedFlags({
@@ -35,7 +35,7 @@ const voiceoverCommand = Command.make(
     const script = yield* loadScript(dir)
     for (const scene of yield* selectScenes(script, scenes)) yield* voiceover(script, scene, voiceoverDir(dir))
   })
-).pipe(Command.withDescription("Generate each scene's voiceover with ElevenLabs into generated/voiceover/, skipping text already generated"))
+).pipe(Command.withDescription("Generate each scene's voiceover with ElevenLabs or OpenRouter into generated/voiceover/, skipping text already generated"))
 
 const images = Command.make(
   "images",
@@ -183,9 +183,13 @@ const app = cmotion.pipe(
   ])
 )
 
+// Voiceover's OpenRouter provider transcribes with SpeechToText; provideMerge keeps it for the transcribe command too.
 // The API clients read their keys through the keyring, so it sits under them as well as alongside.
-const AppLayer = Layer.mergeAll(ElevenLabs.layer, SpeechToText.layer, OpenAIImages.layer, MusicGeneration.live, Engine.layer).pipe(
-  Layer.provideMerge(Layer.merge(BunServices.layer, credentials.layer(bunKeyring())))
-)
+const AppLayer = Layer.mergeAll(
+  Voiceover.live.pipe(Layer.provideMerge(SpeechToText.layer)),
+  OpenAIImages.layer,
+  MusicGeneration.live,
+  Engine.layer
+).pipe(Layer.provideMerge(Layer.merge(BunServices.layer, credentials.layer(bunKeyring()))))
 
 BunRuntime.runMain(Command.run(app, { version }).pipe(Effect.provide(AppLayer)))

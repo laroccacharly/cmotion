@@ -1,7 +1,8 @@
 // The script, videos/VIDEO/script.json: every scene with its voiceover, images and timing.
 import { Effect, FileSystem, Schema } from "effect"
 import { scriptFile } from "./layout.ts"
-import { voiceNames } from "./voices.ts"
+import { voiceNames } from "./voiceover/elevenlabs.ts"
+import { fishVoiceNames } from "./voiceover/openrouter.ts"
 
 const Id = Schema.String.check(Schema.isPattern(/^[a-z0-9][a-z0-9-]*$/u, { message: "lowercase letters, digits and dashes" }))
 
@@ -73,12 +74,8 @@ export const Music = Schema.Union([
 ])
 export type Music = typeof Music.Type
 
-export const Script = Schema.Struct({
+const scriptFields = {
   title: Schema.String,
-  // The ElevenLabs voice for every scene, by name (see voices.ts).
-  voice: Schema.Literals(voiceNames).pipe(Schema.withDecodingDefaultKey(Effect.succeed("george" as const))),
-  model: Schema.Literals(["eleven_v4", "eleven_v4_turbo"]).pipe(Schema.withDecodingDefaultKey(Effect.succeed("eleven_v4"))),
-  output_format: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed("mp3_44100_128"))),
   // Seconds of picture before the voiceover starts and after it ends.
   lead_in: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)).pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.4))),
   tail: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)).pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.6))),
@@ -86,7 +83,29 @@ export const Script = Schema.Struct({
   subtitles: Schema.Boolean.pipe(Schema.withDecodingDefaultKey(Effect.succeed(false))),
   music: Schema.optional(Music),
   scenes: Schema.Array(Scene).check(Schema.isMinLength(1), uniqueIds("scene")),
-})
+}
+// The voiceover provider picks which voice, model and format settings apply.
+export const Script = Schema.Union([
+  // ElevenLabs returns word timings with the audio.
+  Schema.Struct({
+    ...scriptFields,
+    provider: Schema.Literal("elevenlabs").pipe(Schema.withDecodingDefaultKey(Effect.succeed("elevenlabs" as const))),
+    // The ElevenLabs voice for every scene, by name (see voiceover/elevenlabs.ts).
+    voice: Schema.Literals(voiceNames).pipe(Schema.withDecodingDefaultKey(Effect.succeed("george" as const))),
+    model: Schema.Literals(["eleven_v4", "eleven_v4_turbo"]).pipe(Schema.withDecodingDefaultKey(Effect.succeed("eleven_v4"))),
+    output_format: Schema.String.pipe(Schema.withDecodingDefaultKey(Effect.succeed("mp3_44100_128"))),
+  }),
+  // OpenRouter returns audio only; its word timings come from transcribing it.
+  Schema.Struct({
+    ...scriptFields,
+    provider: Schema.Literal("openrouter"),
+    // The Fish Audio voice for every scene, by name (see voiceover/openrouter.ts).
+    voice: Schema.Literals(fishVoiceNames).pipe(Schema.withDecodingDefaultKey(Effect.succeed("adrian" as const))),
+    model: Schema.Literals(["fish-audio/drama-3"]).pipe(Schema.withDecodingDefaultKey(Effect.succeed("fish-audio/drama-3" as const))),
+    // MP3 only, so the transcription gets a container format.
+    output_format: Schema.Literals(["mp3"]).pipe(Schema.withDecodingDefaultKey(Effect.succeed("mp3" as const))),
+  }),
+])
 export type Script = typeof Script.Type
 
 export class ScriptError extends Schema.TaggedError<ScriptError>()("ScriptError", {

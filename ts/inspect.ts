@@ -13,7 +13,7 @@ import { Engine } from "./engine.ts"
 import { buildDir, stillsDir, voiceoverDir } from "./layout.ts"
 import { type ProcessError, run } from "./process.ts"
 import { loadScript, type Script, type ScriptError } from "./script.ts"
-import { voiceoverKey } from "./voiceover.ts"
+import { voiceoverKey } from "./voiceover/index.ts"
 
 // Every scene fades out over its last 0.4s (compile.ts), so the settled frame is taken a little before.
 const FADE = 0.4

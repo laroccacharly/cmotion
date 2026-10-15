@@ -7,10 +7,11 @@ import { Effect, Layer, Schema } from "effect"
 import { imageKey } from "../ts/images.ts"
 import { canonicalJson, sha } from "../ts/key.ts"
 import { Script } from "../ts/script.ts"
-import { ElevenLabs, voiceover, voiceoverKey, wordsFromAlignment } from "../ts/voiceover.ts"
+import { ElevenLabs, OpenRouterSpeech, Voiceover, voiceover, voiceoverKey, wordsFromAlignment } from "../ts/voiceover/index.ts"
 
 const decodeScript = Schema.decodeUnknownSync(Script, { onExcessProperty: "error" })
 const script = decodeScript({ title: "t", scenes: [{ id: "hook", title: "Hook", voiceover: "An agent wrote this function." }] })
+const scene = { id: "a", title: "A", voiceover: "Hi." }
 
 describe("cache keys", () => {
   test("ignore key order and cover every value", () => {
@@ -29,7 +30,7 @@ describe("cache keys", () => {
 
   test("a voiceover key covers the text and the voice settings", () => {
     expect(voiceoverKey(script, "Hello.")).not.toBe(voiceoverKey(script, "Hello!"))
-    expect(voiceoverKey(script, "Hello.")).not.toBe(voiceoverKey({ ...script, voice: "alice" }, "Hello."))
+    expect(voiceoverKey(script, "Hello.")).not.toBe(voiceoverKey(decodeScript({ title: "t", voice: "alice", scenes: [scene] }), "Hello."))
   })
 })
 
@@ -55,6 +56,38 @@ describe("script", () => {
     expect(() => decodeScript({ title: "t", scenes: [scene({ file: "assets/x.png", prompt: "p" })] })).toThrow()
     expect(() => decodeScript({ title: "t", scenes: [scene({})] })).toThrow()
   })
+
+  test("the voiceover provider picks its own voice, model and format", () => {
+    expect(decodeScript({ title: "t", provider: "openrouter", scenes: [scene] })).toMatchObject({ provider: "openrouter", voice: "adrian", model: "fish-audio/drama-3", output_format: "mp3" })
+    expect(decodeScript({ title: "t", provider: "openrouter", voice: "delia", scenes: [scene] })).toMatchObject({ voice: "delia" })
+    for (const voiceover of [
+      { provider: "openrouter", model: "eleven_v4" },
+      { provider: "openrouter", output_format: "pcm" },
+      { provider: "openrouter", voice: "george" },
+      { provider: "elevenlabs", model: "fish-audio/drama-3" },
+      { provider: "unknown" },
+    ]) expect(() => decodeScript({ title: "t", scenes: [scene], ...voiceover })).toThrow()
+  })
+})
+
+test("Voiceover routes to the provider the script names, and only it", async () => {
+  const calls: Array<string> = []
+  const provider = (name: string) => ({
+    speak: () =>
+      Effect.sync(() => {
+        calls.push(name)
+        return { audio: new Uint8Array([1, 2, 3]), words: [{ text: "Hi", start: 0, end: 0.1 }] }
+      }),
+  })
+  const layer = Voiceover.layer.pipe(
+    Layer.provide(Layer.merge(Layer.succeed(ElevenLabs)(provider("elevenlabs")), Layer.succeed(OpenRouterSpeech)(provider("openrouter"))))
+  )
+  const openrouter = decodeScript({ title: "t", provider: "openrouter", scenes: [scene] })
+  const speak = (s: Script) => Effect.gen(function* () {
+    return yield* (yield* Voiceover).speak("hi", s)
+  })
+  await Effect.runPromise(Effect.all([speak(script), speak(openrouter)]).pipe(Effect.provide(layer)))
+  expect(calls).toEqual(["elevenlabs", "openrouter"])
 })
 
 test("character timings group into words, audio tags included", () => {
@@ -74,7 +107,7 @@ test("character timings group into words, audio tags included", () => {
 test("a voiceover is generated once, then read from the cache", async () => {
   const dir = mkdtempSync(join(tmpdir(), "cmotion-voiceover-"))
   let calls = 0
-  const fake = Layer.succeed(ElevenLabs)({
+  const fake = Layer.succeed(Voiceover)({
     speak: () => Effect.sync(() => (calls++, { audio: new Uint8Array([1, 2, 3]), words: [{ text: "An", start: 0, end: 0.2 }] })),
   })
   const scene = script.scenes[0]!
