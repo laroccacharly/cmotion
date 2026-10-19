@@ -67,6 +67,10 @@ export type Style = {
 
 export type Node = { type: "box" | "text" | "field" | "image"; style: Style; spans?: Span[]; children: Node[] };
 
+/** The video's frame in px, the script's `resolution`. The compiler sets it before it loads any scene, so a theme
+ * reads it at import, e.g. `text(t, { x: 0, w: frame.width })`. A scene root without w or h fills it. */
+export const frame = { width: 0, height: 0 };
+
 /**
  * A node given its own position (a non-zero x, y, relX, relY or anchor) without `abs: true`. Only in the types: a row
  * or column places its children itself and ignores their position, so it refuses these.

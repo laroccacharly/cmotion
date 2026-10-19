@@ -9,10 +9,10 @@
 // With "subtitles": true in the script, each scene also gets its voiceover as timed subtitle lines.
 import { existsSync, mkdirSync, readdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { color, type Node, SceneCtx, type SceneFn, type Word } from "./dsl";
+import { color, frame, type Node, SceneCtx, type SceneFn, type Word } from "./dsl";
 import { imageDir as generatedImages, renderFile, sceneFile, scriptFile, voiceoverDir } from "./layout";
 import { Schema } from "effect";
-import { type Scene as ScriptScene, Script } from "./script";
+import { frameSize, type Scene as ScriptScene, Script } from "./script";
 import { voiceoverKey } from "./voiceover/index.ts";
 import { sha } from "./key";
 import { checkScene } from "./check";
@@ -57,7 +57,8 @@ function voice(scene: ScriptScene): { audio: string; words: Word[]; duration: nu
   return { audio, words: hit.words, duration: parseFloat(probe.stdout.toString()) };
 }
 
-const W = 1920, H = 1080;
+const { width: W, height: H } = frameSize(script.resolution);
+Object.assign(frame, { width: W, height: H });
 
 const images = metas(imageDir);
 
@@ -177,6 +178,8 @@ for (const scene of script.scenes.filter((scene) => only.length === 0 || only.in
     continue;
   }
   root.style.id = "scene";
+  root.style.w ??= W;
+  root.style.h ??= H;
   resolveImages(root, scene);
   // Every scene fades out over its last 0.4s, like Scene.make().
   ctx.tl.to("scene", { opacity: 0 }, duration - 0.4, { duration: 0.4 });

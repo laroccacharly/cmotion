@@ -135,6 +135,19 @@ describe("on the fixture", () => {
     expect(compiled.stderr.toString()).toContain('scene hook: a tween targets "ghost", which no node has')
   })
 
+  test("a script without a resolution is 16:10, and the scene root and theme fill it", () => {
+    const scriptPath = join(dir, "script.json")
+    const script = readFileSync(scriptPath, "utf8")
+    const { resolution: _, ...rest } = JSON.parse(script)
+    writeFileSync(scriptPath, JSON.stringify(rest))
+    const compiled = Bun.spawnSync([process.execPath, join(import.meta.dir, "..", "ts", "compile.ts"), dir])
+    writeFileSync(scriptPath, script)
+    expect(compiled.exitCode).toBe(0)
+    const video = JSON.parse(readFileSync(renderFile(dir), "utf8"))
+    expect([video.width, video.height]).toEqual([1920, 1200])
+    expect([video.scenes[0].root.w, video.scenes[0].root.h]).toEqual([1920, 1200])
+  })
+
   test("the engine reports a node pushed out of the frame for long enough, and not a clean scene", async () => {
     expect(Bun.spawnSync([process.execPath, join(import.meta.dir, "..", "ts", "compile.ts"), dir]).exitCode).toBe(0)
     const still = (json: string) =>

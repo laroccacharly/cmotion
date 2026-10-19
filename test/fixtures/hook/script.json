@@ -1,5 +1,6 @@
 {
   "title": "cmotion fixture",
+  "resolution": "1920x1080",
   "scenes": [
     {
       "id": "hook",

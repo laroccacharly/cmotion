@@ -18,6 +18,27 @@ const sizeIssue = (size: string) => {
   return true
 }
 
+// The video's frame, 16:10 like the screen crec records and the cut cvid renders.
+export const defaultResolution = "1920x1200"
+
+// WIDTHxHEIGHT for the frame: the engine packs YUV 4:2:0 four pixels at a time, so the width is a multiple of 4 and the
+// height even; at most 3840x2160.
+const resolutionIssue = (size: string) => {
+  const match = /^(\d+)x(\d+)$/u.exec(size)
+  if (!match) return `resolution ${size} is not WIDTHxHEIGHT`
+  const w = Number(match[1])
+  const h = Number(match[2])
+  if (w <= 0 || h <= 0 || w % 4 || h % 2) return `resolution ${size}: the width must be a multiple of 4 and the height even`
+  if (Math.max(w, h) > 3840 || Math.min(w, h) > 2160) return `resolution ${size}: at most 3840x2160`
+  return true
+}
+
+// A WIDTHxHEIGHT checked by resolutionIssue, in px.
+export const frameSize = (size: string): { readonly width: number; readonly height: number } => {
+  const [width = 0, height = 0] = size.split("x").map(Number)
+  return { width, height }
+}
+
 const uniqueIds = (what: string) =>
   Schema.makeFilter((items: ReadonlyArray<{ readonly id: string }>) => {
     const ids = items.map((item) => item.id)
@@ -76,6 +97,8 @@ export type Music = typeof Music.Type
 
 const scriptFields = {
   title: Schema.String,
+  // The video's frame, WIDTHxHEIGHT. Scene roots fill it; themes read it from `frame`.
+  resolution: Schema.String.check(Schema.makeFilter(resolutionIssue)).pipe(Schema.withDecodingDefaultKey(Effect.succeed(defaultResolution))),
   // Seconds of picture before the voiceover starts and after it ends.
   lead_in: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)).pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.4))),
   tail: Schema.Finite.check(Schema.isGreaterThanOrEqualTo(0)).pipe(Schema.withDecodingDefaultKey(Effect.succeed(0.6))),

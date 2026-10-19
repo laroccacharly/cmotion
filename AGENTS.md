@@ -14,7 +14,7 @@ Each video lives in `videos/VIDEO/`, under the project root (`--root`, default `
 
 ```
 videos/VIDEO/
-  script.json      the scenes, with each one's id, title, visual and exact voiceover, plus provider, voice, subtitles and music
+  script.json      the scenes, with each one's id, title, visual and exact voiceover, plus resolution, provider, voice, subtitles and music
   theme.ts         the look: palette, background and shared components, imported by scenes as `../theme`
   scenes/<id>.ts   one file per scene, written with the DSL (`import type { SceneCtx } from "cmotion"`)
   script.mp4       the joined video
@@ -33,7 +33,9 @@ videos/VIDEO/
    listed in its file under `ts/voiceover/`. The word timings it caches are what scenes are
    timed to, so write scenes after this step.
 3. **Theme and scenes.** Put colors (through `palette`), the background and reusable pieces in `theme.ts`. Each scene
-   exports a function from `SceneCtx` to a node tree and adds tweens to `s.tl`.
+   exports a function from `SceneCtx` to a node tree and adds tweens to `s.tl`. The script's `resolution` (default
+   1920x1200, 16:10) is the frame: a scene root without `w` or `h` fills it, and `frame.width` / `frame.height` (from
+   `cmotion`) give it to a theme. Never write the frame size as numbers.
 4. **Check frames.** `bun cmotion still VIDEO <frame>...` renders frames without a full render: `<id>` (the settled
    end), `<id>:<seconds>` or `<id>@<word>` (`cue@now#2+0.5`). Several frames come back tiled in one image.
 5. **Build.** `bun cmotion build VIDEO` generates what is missing (voiceovers, images, music), renders the scenes that

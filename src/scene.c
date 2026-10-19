@@ -340,8 +340,14 @@ bool video_load(Video *v, const char *path, char *err, int errlen) {
     snprintf(err, errlen, "%s: invalid JSON near %.40s", path, cJSON_GetErrorPtr());
     return false;
   }
-  v->width = (int)num(root, "width", 1920);
-  v->height = (int)num(root, "height", 1080);
+  // The compiler always writes the frame (the script's resolution).
+  v->width = (int)num(root, "width", 0);
+  v->height = (int)num(root, "height", 0);
+  if (v->width <= 0 || v->height <= 0) {
+    snprintf(err, errlen, "%s: no width and height", path);
+    cJSON_Delete(root);
+    return false;
+  }
   v->fps = (int)num(root, "fps", 30);
   const cJSON *scenes = cJSON_GetObjectItemCaseSensitive(root, "scenes");
   v->nscenes = cJSON_GetArraySize(scenes);

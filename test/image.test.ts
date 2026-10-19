@@ -58,7 +58,7 @@ test("a scene image keeps its aspect and orientation", async () => {
   writeFileSync(
     join(dir, "scenes", "hook.ts"),
     `import { box, image } from "${join(packageDir, "ts", "dsl.ts")}";\n` +
-      'export default () => box({ x: 0, y: 0, w: 1920, h: 1080 }, image("quads", { x: 100, y: 100, w: 400 }), image("photo", { x: 600, y: 100, h: 100 }), image("photo", { id: "rotated", x: 800, y: 200, w: 400, rotate: 90 }));\n'
+      'export default () => box({}, image("quads", { x: 100, y: 100, w: 400 }), image("photo", { x: 600, y: 100, h: 100 }), image("photo", { id: "rotated", x: 800, y: 200, w: 400, rotate: 90 }));\n'
   )
 
   const renderJson = renderFile(dir)

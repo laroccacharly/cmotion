@@ -1,5 +1,5 @@
 // The lint video's look for cmotion: the same tokens and components as ../theme.css.
-import { palette, box, type CodeClass, codeLines, type Node, type Span, type Style, text } from "cmotion";
+import { palette, box, type CodeClass, codeLines, frame, type Node, type Span, type Style, text } from "cmotion";
 
 export const C = palette({
   panel: "#16181d",
@@ -15,7 +15,7 @@ export const C = palette({
   cm: "#7c7f87",
 });
 
-export const W = 1920;
+export const W = frame.width;
 
 /** A toggled code token: `tl.set(id, BAD, t)`. */
 export const BAD = { fg: C.red, bg: "rgba(248, 113, 113, 0.16)" };
@@ -79,5 +79,5 @@ export const title = (label: string, style: Style) =>
 export const centeredRow = (style: Style, ...children: Node[]) =>
   box({ x: 0, w: W, layout: "row", justify: "center", align: "center", ...style }, ...children);
 
-/** The scene root: 1920x1080, children positioned absolutely. */
-export const scene = (...children: (Node | Node[])[]) => box({ x: 0, y: 0, w: W, h: 1080, color: C.text }, ...children);
+/** The scene root: the whole frame, children positioned absolutely. */
+export const scene = (...children: (Node | Node[])[]) => box({ x: 0, y: 0, color: C.text }, ...children);
