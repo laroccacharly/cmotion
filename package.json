@@ -15,8 +15,8 @@
     "lint": "oxlint && ts-lint-effect"
   },
   "dependencies": {
-    "@effect/platform-bun": "4.0.0",
-    "effect": "4.0.0",
+    "@effect/platform-bun": "4.0.5",
+    "effect": "4.0.5",
     "effect-lib": "github:laroccacharly/effect-lib#v0.7.0",
     "typescript": "^7.0.2"
   },
