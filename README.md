@@ -10,7 +10,7 @@ A C renderer for motion videos: an alternative to HyperFrames for simple scenes 
 
 - [bun](https://bun.sh), and `ffmpeg` and `ffprobe` on the PATH
 - To build the engine: a C compiler and the OpenGL and EGL development headers. It needs a GPU driver with EGL (Mesa or NVIDIA), not a display server
-- `ELEVENLABS_API_KEY` and `OPENAI_API_KEY`, in the environment or the OS keyring
+- `ELEVENLABS_API_KEY` and `OPENROUTER_API_KEY`, in the environment or the OS keyring
 
 ## Installation
 

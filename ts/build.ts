@@ -11,7 +11,7 @@ import type { ChildProcessSpawner } from "effect/process"
 import type { CredentialsError } from "effect-lib/credentials"
 import { type Config, packageDir, tscBin } from "./config.ts"
 import { Engine, type Encoding } from "./engine.ts"
-import { type ImageError, type OpenAIImages, sceneImages } from "./images.ts"
+import { type ImageError, type OpenRouterImages, sceneImages } from "./images.ts"
 import { canonicalJson, sha } from "./key.ts"
 import { buildDir, imageDir, musicDir, outputFile, renderFile, sceneRenderDir, voiceoverDir } from "./layout.ts"
 import { type MusicError, music, musicFile, musicKey, type MusicGeneration } from "./music.ts"
@@ -223,7 +223,7 @@ export const joinScenes: (
   yield* Console.log(`  video → ${out} (${(yield* duration(out)).toFixed(1)}s)`)
 })
 
-export type BuildServices = Engine | Voiceover | OpenAIImages | MusicGeneration | FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner
+export type BuildServices = Engine | Voiceover | OpenRouterImages | MusicGeneration | FileSystem.FileSystem | ChildProcessSpawner.ChildProcessSpawner
 export type BuildFailure = BuildError | ProcessError | ScriptError | VoiceoverError | ImageError | MusicError | CredentialsError
 
 // New voiceovers, images and music first, then compile and render. With scene ids, only those render and nothing is joined.

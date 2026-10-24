@@ -30,13 +30,12 @@ export const configPath = join(xdg("XDG_CONFIG_HOME", ".config"), "cmotion", "co
 
 // Secrets come from the environment, falling back to the OS keyring (`cmotion login`).
 export const ElevenLabsKey = secret("ELEVENLABS_API_KEY", { label: "ElevenLabs API key" })
-export const OpenAIKey = secret("OPENAI_API_KEY", { label: "OpenAI API key" })
 export const OpenRouterKey = secret("OPENROUTER_API_KEY", { label: "OpenRouter API key" })
 export const GeminiKey = secret("GEMINI_API_KEY", { label: "Gemini API key" })
-export const credentials = make([ElevenLabsKey, OpenAIKey, OpenRouterKey, GeminiKey])
+export const credentials = make([ElevenLabsKey, OpenRouterKey, GeminiKey])
 
 const ConfigFile = Schema.Struct({
-  // OpenAI Images model for scene images. Part of each image's cache key.
+  // OpenRouter image model for scene images. Part of each image's cache key.
   imageModel: Schema.optional(Schema.String),
   // x264 settings for scene renders. Part of each scene's cache key.
   preset: Schema.optional(Schema.String),
@@ -64,7 +63,7 @@ const store = JsonStore.make(configPath, ConfigFile)
 export const loadConfig: Effect.Effect<Config, ConfigError, FileSystem.FileSystem> = Effect.gen(function* () {
   const file: typeof ConfigFile.Type = Option.getOrElse(yield* store.load.pipe(Effect.mapError((error) => new ConfigError({ message: error.message }))), () => ({}))
   return {
-    imageModel: file.imageModel ?? "gpt-image-2.5-sunburst",
+    imageModel: file.imageModel ?? "openai/gpt-image-2.5-sunburst",
     preset: file.preset ?? "veryfast",
     crf: file.crf ?? 18,
     jobs: file.jobs ?? 2,

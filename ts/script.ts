@@ -46,7 +46,7 @@ const uniqueIds = (what: string) =>
     return duplicates.length === 0 || `duplicate ${what} ids: ${duplicates.join(", ")}`
   })
 
-// An image generated with OpenAI Images for one scene, cached by its prompt and settings.
+// An image generated on OpenRouter for one scene, cached by its prompt and settings.
 export const GeneratedImage = Schema.Struct({
   id: Id,
   prompt: Schema.NonEmptyString,

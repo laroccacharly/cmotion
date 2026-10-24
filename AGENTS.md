@@ -5,7 +5,7 @@ timed to the words being spoken. It is used from other repos as a GitHub depende
 
 - Learn the CLI from `bun cmotion --help` and `bun cmotion <command> --help`. That help is the source of truth for
   flags and defaults.
-- API keys (`ELEVENLABS_API_KEY`, `OPENAI_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`) come from the environment,
+- API keys (`ELEVENLABS_API_KEY`, `OPENROUTER_API_KEY`, `GEMINI_API_KEY`) come from the environment,
   then the OS keyring (`bun cmotion login`).
 
 ## A video folder

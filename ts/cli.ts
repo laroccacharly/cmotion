@@ -7,7 +7,7 @@ import { bunKeyring } from "effect-lib/credentials"
 import { build } from "./build.ts"
 import { configPath, credentials, engineDir, loadConfig, version } from "./config.ts"
 import { Engine } from "./engine.ts"
-import { OpenAIImages, sceneImages } from "./images.ts"
+import { OpenRouterImages, sceneImages } from "./images.ts"
 import { inspect, stills } from "./inspect.ts"
 import { imageDir, musicDir, videoDir, voiceoverDir } from "./layout.ts"
 import { music, MusicGeneration } from "./music.ts"
@@ -46,7 +46,7 @@ const images = Command.make(
     const script = yield* loadScript(dir)
     yield* sceneImages(yield* selectScenes(script, scenes), imageDir(dir), config.imageModel, config.imageJobs)
   })
-).pipe(Command.withDescription("Generate each scene's images with OpenAI Images into generated/images/, skipping prompts and settings already generated"))
+).pipe(Command.withDescription("Generate each scene's images with OpenRouter into generated/images/, skipping prompts and settings already generated"))
 
 const musicCommand = Command.make(
   "music",
@@ -187,7 +187,7 @@ const app = cmotion.pipe(
 // The API clients read their keys through the keyring, so it sits under them as well as alongside.
 const AppLayer = Layer.mergeAll(
   Voiceover.live.pipe(Layer.provideMerge(SpeechToText.layer)),
-  OpenAIImages.layer,
+  OpenRouterImages.layer,
   MusicGeneration.live,
   Engine.layer
 ).pipe(Layer.provideMerge(Layer.merge(BunServices.layer, credentials.layer(bunKeyring()))))
